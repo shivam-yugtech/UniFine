@@ -1,0 +1,114 @@
+PRODUCT REQUIREMENTS DOCUMENT (PRD)
+University Fine Management System (UniFine)
+Version 1.0 | Prepared: 08 September 2026
+# 1. Document Purpose
+This PRD defines the business requirements, user roles, workflows, functional scope, non-functional expectations, and acceptance criteria for UniFine, a centralized university web-based fine management system.
+# 2. Product Vision
+Create a transparent, accurate, user-friendly platform for issuing, reviewing, tracking, and viewing university fines according to approved university norms.
+# 3. Problem Statement
+University fine processes can be manual, fragmented, difficult to audit, and vulnerable to incorrect offence or amount selection. Students may also lack a clear, read-only view of why a fine was issued and its current status.
+# 4. Objectives
+Centralize university fine management in one web platform.
+Ensure transparency through an offence-level fine history.
+Reduce manual amount-entry errors through predefined offences and automatic amounts.
+Verify the student before a fine is assigned.
+Provide role-based access for Admin, Faculty, and Student.
+Allow administrators to correct incorrectly assigned fines while preserving accountability.
+Give students a clear, read-only view of fines, status/history, and the university rule book.
+Support reports, search, filtering, notifications, and auditability.
+# 5. Scope
+In scope: responsive website, authentication, role-based authorization, Admin/Faculty/Student dashboards, student search and verification, predefined offence catalogue, fine assignment, multiple offences per student, fine history, rule book, reports, notifications, profile/settings, REST API integration, MySQL persistence, and audit-oriented records.
+Current exclusion: integration with the third-party iCloud/student information system is deferred. The architecture should leave a clean integration boundary for a future approved integration.
+# 6. Users & Roles
+Admin: manages fine types/rules, reviews records, corrects incorrect fines, manages system settings, views reports, and oversees fine history.
+Faculty: searches/verifies a student, selects predefined offences, assigns fines, and views relevant records/reports. At least one offence is required; additional offences are optional.
+Student: read-only access to their own fines, offence details, status/payment history, and university rule book. Students cannot edit fine records.
+# 7. Core User Workflow
+Faculty/Admin opens the fine assignment workflow.
+User enters the student's roll number/student ID.
+System retrieves the student's stored profile and photograph from the UniFine data source.
+User verifies that the displayed student is the intended student.
+After verification, the offence selector becomes available.
+User selects one required offence; additional offences may be added optionally.
+The system automatically loads the approved fine amount for each selected offence.
+User reviews the fine summary and submits it.
+The system creates a separate fine record for each selected offence.
+The student can subsequently view the records from the Student portal; notifications/status updates can be generated according to configured rules.
+# 8. Functional Requirements
+FR-01 — Authentication: Users shall sign in securely and be routed to the correct role portal.
+FR-02 — Authorization: API and UI access shall be restricted according to Admin, Faculty, and Student roles.
+FR-03 — Student Search: Authorized staff shall search by roll number/student ID and locate a student.
+FR-04 — Student Verification: Student name, ID, programme/department, year and photograph shall be displayed for verification before offence selection.
+FR-05 — Offence Catalogue: Admins shall manage predefined offence names, descriptions, rule references, status, and approved fine amounts.
+FR-06 — Fine Assignment: Faculty shall assign a fine only after successful student verification.
+FR-07 — Required Offence: At least one offence must be selected before submission.
+FR-08 — Multiple Offences: Additional offences may be added optionally in the same workflow.
+FR-09 — Automatic Amount: Fine amounts shall be populated from the configured offence/rule instead of being manually typed during normal assignment.
+FR-10 — Separate Records: Each selected offence shall create its own fine record linked to the same student and assignment event.
+FR-11 — Admin Correction: Admin shall be able to correct an incorrect fine according to authorization rules, with an audit trail.
+FR-12 — Student Portal: Students shall see only their own records and shall not be able to edit them.
+FR-13 — Rule Book: Students and authorized staff shall be able to view the university rule book; Admin shall manage its content.
+FR-14 — Fine History: Authorized users shall search, filter, sort and view fine records.
+FR-15 — Reports: Admin shall view summary metrics and generate/export reports.
+FR-16 — Notifications: The system shall support configurable fine/payment/status notifications.
+FR-17 — Audit Trail: Critical create/update/correction actions shall record actor, timestamp, affected record and action.
+FR-18 — Profile/Settings: Users shall manage permitted profile and preference settings.
+# 9. Business Rules
+Only authorized Admin/Faculty users can assign fines.
+Student identity must be verified before offence selection/submission.
+At least one offence is mandatory.
+Multiple offences are permitted.
+The amount shown for an offence comes from the active approved rule.
+A student's multiple offences are stored as separate fine records, not one combined opaque record.
+Students have read-only access to their own fine information.
+Administrative corrections must be traceable.
+Inactive/retired offences should not be selectable for new fines.
+Fine status should support at minimum Pending, Paid, and Overdue; exact payment processing can be implemented according to university policy.
+# 10. Main Screens
+Landing page
+Login
+Admin dashboard
+Faculty dashboard
+Student dashboard
+Student directory/search
+Student profile
+Assign fine
+Fine history
+Rule book
+Reports
+Notifications
+Settings
+Profile
+# 11. Dashboard Requirements
+Admin: total fines, collected/outstanding amounts, students with fines, collection rate, recent activity, offence/category breakdown, reports and management shortcuts.
+Faculty: fines issued, awaiting payment, resolved fines, students impacted, recent activity and attention items.
+Student: current balance, active fines, due dates, payment history, account status, fine details and rule book access.
+# 12. UX Requirements
+Clean, sober, professional university dashboard design.
+Responsive desktop/tablet/mobile layout.
+Clear validation and confirmation before irreversible actions.
+Accessible forms, readable tables, meaningful status badges, search/filter controls, and consistent navigation.
+Do not expose administrative editing controls to students.
+# 13. Non-Functional Product Requirements
+Security: authenticated, role-restricted access and protected APIs.
+Reliability: failed operations should not create partial/inconsistent fine records.
+Performance: common search/dashboard actions should feel responsive under expected university load.
+Scalability: architecture should allow growth in students, offences and fine records.
+Auditability: administrative corrections and critical actions must be traceable.
+Maintainability: modular frontend and backend with clear separation of concerns.
+# 14. Acceptance Criteria
+A faculty user can enter a valid roll number, see the correct student profile/photo, verify it, select an offence, see its automatic amount, and submit a fine.
+Submission is blocked when no offence is selected.
+Multiple selected offences generate separate database records for the same student.
+A student can view their own fine records but cannot edit them.
+An Admin can correct an incorrectly assigned fine and the correction is auditable.
+Only active configured offences can be assigned.
+Role-restricted pages and APIs reject unauthorized access.
+The system provides searchable fine history and basic reports.
+The website works as a responsive web application.
+# 15. Future Enhancements
+Approved integration with the university's existing student information/iCloud system.
+Online payment gateway integration if required by university policy.
+QR/barcode-based student lookup.
+Email/SMS/WhatsApp notification integrations where institutionally approved.
+Advanced analytics and automated reconciliation.

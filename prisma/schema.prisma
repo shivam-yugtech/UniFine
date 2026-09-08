@@ -1,0 +1,112 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// Roles: ADMIN | FACULTY | STUDENT
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  role         String
+  rollNumber   String? // only for STUDENT role — links to Student.rollNumber
+  department   String?
+  designation  String?
+  status       String   @default("ACTIVE")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  finesIssued  Fine[]   @relation("IssuedBy")
+}
+
+model Student {
+  id         String   @id @default(cuid())
+  rollNumber String   @unique
+  name       String
+  email      String
+  photoColor String   @default("#3b82f6")
+  department String
+  programme  String
+  year       String
+  status     String   @default("ACTIVE")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  fines      Fine[]
+}
+
+// Offence catalogue — amounts come from here, never typed manually (FR-05, FR-09)
+model Offence {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  name        String
+  description String
+  ruleRef     String
+  category    String
+  amount      Float
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  fines       Fine[]
+}
+
+// One Fine row per offence (TRD §7) — amounts snapshotted at issue time
+model Fine {
+  id             String    @id @default(cuid())
+  studentId      String
+  offenceId      String
+  issuedById     String
+  amountSnapshot Float
+  reason         String?
+  issueDate      DateTime  @default(now())
+  dueDate        DateTime
+  status         String    @default("PENDING") // PENDING | PAID | OVERDUE
+  corrected      Boolean   @default(false)
+  paymentDate    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  student        Student   @relation(fields: [studentId], references: [id])
+  offence        Offence   @relation(fields: [offenceId], references: [id])
+  issuedBy       User      @relation("IssuedBy", fields: [issuedById], references: [id])
+  audits         FineAudit[]
+}
+
+model FineAudit {
+  id        String   @id @default(cuid())
+  fineId    String
+  actorId   String
+  actorName String
+  action    String // CREATED | CORRECTED | STATUS_UPDATED | MARKED_PAID
+  oldValues String?
+  newValues String?
+  note      String?
+  createdAt DateTime @default(now())
+  fine      Fine     @relation(fields: [fineId], references: [id])
+}
+
+model RuleBookEntry {
+  id        String   @id @default(cuid())
+  category  String
+  title     String
+  content   String
+  ruleRef   String?
+  active    Boolean  @default(true)
+  version   Int      @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  audience  String   @default("ALL") // ALL | ADMIN | FACULTY | STUDENT | USER
+  userId    String? // specific recipient when audience = USER
+  type      String   @default("GENERAL") // FINE_ISSUED | PAYMENT | STATUS | GENERAL
+  title     String
+  message   String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

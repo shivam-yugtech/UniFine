@@ -1,0 +1,161 @@
+TECHNICAL REQUIREMENTS DOCUMENT (TRD)
+University Fine Management System (UniFine)
+Version 1.0 | Prepared: 08 September 2026
+# 1. Technical Purpose
+This TRD defines the proposed architecture, technology stack, modules, API design, data model, security model, deployment approach, testing strategy, and technical constraints for UniFine.
+# 2. Architecture
+Recommended architecture: React.js single-page frontend → REST/JSON API → Java 21 Spring Boot backend → Spring Data JPA/Hibernate → MySQL. Authentication uses Spring Security with JWT. Axios is used by the frontend for API communication; React Router handles client-side routing.
+# 3. Technology Stack
+Frontend: React.js, React Router, Axios, Tailwind CSS or Bootstrap, Lucide React for icons.
+Backend: Java 21, Spring Boot, Spring Security, Spring Data JPA, Hibernate.
+Database: MySQL.
+Development: VS Code for frontend/full project work; IntelliJ IDEA may be used for backend development; MySQL Workbench; Postman.
+Version control: Git and GitHub.
+Deployment: production hosting selected according to university infrastructure; frontend and backend may be deployed separately.
+# 4. Suggested Project Structure
+Frontend
+src/
+  components/
+  pages/
+  layouts/
+  services/
+  hooks/
+  context/
+  utils/
+  assets/
+  styles/
+  App.jsx
+  main.jsx
+
+Backend
+src/main/java/.../
+  controller/
+  service/
+  repository/
+  entity/
+  dto/
+  mapper/
+  security/
+  exception/
+  config/
+
+src/main/resources/
+  application.properties
+  db/migration/   (optional if Flyway/Liquibase is adopted)
+# 5. Backend Modules
+Authentication & authorization
+User/role management
+Student management
+Offence/rule management
+Fine management
+Fine history & search
+Notifications
+Reports
+Audit logging
+Rule book management
+# 6. Core Data Model
+User: id, username/email, password hash, role, status, timestamps.
+Role: ADMIN, FACULTY, STUDENT.
+Student: id, roll number, name, email, photograph reference, department/programme, year, status, timestamps.
+Offence: id, name, description, rule reference, fine amount, active flag, timestamps.
+Fine: id, student_id, offence_id, issued_by, amount_snapshot, reason/details, issue date, due date, status, corrected flag, timestamps.
+FineAudit: id, fine_id, actor_id, action, old values/reference, new values/reference, timestamp.
+RuleBookEntry: id, category, title, content/rule reference, active flag, version, timestamps.
+Notification: id, recipient, type, title, message, read status, timestamp.
+# 7. Important Database Design Rule
+Do not store three offences as one text field or one combined fine. If Student A receives three offences, create three Fine rows, each linked to Student A and its corresponding Offence. The amount_snapshot on each Fine preserves the amount that was actually assigned at issuance even if the offence's current configured amount later changes.
+# 8. REST API Design
+POST /api/auth/login: Authenticate and return JWT/role information.
+GET /api/students/search?rollNumber=: Search student for authorized staff.
+GET /api/students/{id}: Get verified student details.
+GET /api/offences?active=true: Get selectable active offences.
+POST /api/fines: Create one or more offence-level fine records.
+GET /api/fines: Search/filter fine history for authorized users.
+GET /api/students/{id}/fines: Get a student's fine records.
+PATCH /api/fines/{id}: Admin correction/update according to policy.
+GET /api/rule-book: View rule book.
+POST /api/rule-book: Admin creates rule entry.
+GET /api/reports/summary: Dashboard/report metrics.
+GET /api/notifications: Get user notifications.
+# 9. Fine Assignment Payload Concept
+{
+  "studentId": 184,
+  "offences": [
+    {"offenceId": 3, "reason": "Approved reason"},
+    {"offenceId": 7, "reason": "Approved reason"}
+  ],
+  "dueDate": "YYYY-MM-DD"
+}
+The backend must re-read the active offence definitions and determine authoritative amounts. The client must not be trusted to supply an arbitrary fine amount.
+# 10. Security
+Use Spring Security for authentication and authorization.
+Use BCrypt/DelegatingPasswordEncoder for password hashing; never store plaintext passwords.
+Issue short-lived JWT access tokens and validate signature, expiry, issuer/audience as configured.
+Enforce role checks at API level, not only in React.
+Students may access only their own records.
+Faculty may access only permitted student/fine operations.
+Admin-only endpoints must require ADMIN authorization.
+Validate and sanitize request data; use DTOs rather than exposing entities directly.
+Use HTTPS in production and protect secrets through environment variables/secret management.
+Record audit events for fine creation, correction, rule changes and other critical actions.
+# 11. Transaction & Consistency Requirements
+Creating multiple offences for one fine-assignment action should run in a database transaction. If any required part fails, the operation should roll back to avoid partial creation. Each Fine row remains independently queryable.
+# 12. Frontend Technical Requirements
+React Router routes: /, /login, /admin/*, /faculty/*, /student/*.
+Protected routes based on authenticated user role.
+Reusable Sidebar, Topbar, Button, Modal, Toast, Badge, Table, Form and Loader components.
+Axios service layer with a central API base URL and JWT handling.
+Form validation for roll number, student verification, offence selection and due date.
+Loading, empty, success and error states for API operations.
+Do not hard-code production student/fine data; use mock data only during UI development.
+# 13. Student Verification Technical Flow
+Client sends roll number/student ID to backend.
+Backend authenticates the request and queries the Student repository.
+Backend returns permitted student fields and photograph reference.
+UI displays the result with a clear Verify action.
+Only after verification does the offence assignment section become enabled.
+The server independently validates that the selected student exists and the selected offences are active.
+# 14. Error Handling
+400 Bad Request: validation errors.
+401 Unauthorized: missing/invalid authentication.
+403 Forbidden: authenticated but insufficient role.
+404 Not Found: student/offence/fine does not exist.
+409 Conflict: business-rule conflict where applicable.
+500 Internal Server Error: unexpected server failure; return a safe message and log technical details server-side.
+# 15. Logging & Auditing
+Application logs should capture request context, errors and significant backend events without logging passwords, JWTs, or unnecessary personal data. Audit records should capture who performed a critical action, what record changed, when it changed, and enough before/after context to explain the correction.
+# 16. Testing Strategy
+Frontend: component and route tests for critical flows.
+Backend: unit tests for services/business rules and integration tests for repositories/controllers.
+API: Postman collections for authentication, student verification, offence retrieval, fine creation, correction, student access and role restrictions.
+Security tests: verify that students cannot access admin/faculty endpoints and users cannot access another student's records.
+Database tests: verify one Fine row per offence and transactional rollback behavior.
+# 17. Deployment
+Build React production bundle and deploy to approved static/frontend hosting.
+Build Spring Boot application as a deployable JAR/container.
+Provision MySQL with backups and restricted network access.
+Configure CORS for the production frontend origin.
+Set database URL, credentials, JWT secret/configuration and other secrets through environment variables/secret storage.
+Use HTTPS and production logging/monitoring.
+Run database migrations before releasing new backend versions.
+# 18. Future iCloud Integration Boundary
+The current release does not integrate with the third-party iCloud student application. To keep future integration possible, StudentService should expose an abstraction such as StudentDataProvider. The initial implementation can use the UniFine/MySQL provider; a future approved provider can retrieve student details and photograph through an official API/export/integration mechanism without rewriting the fine-management domain.
+# 19. Technical Acceptance Criteria
+Backend builds successfully on Java 21/Spring Boot.
+Frontend builds successfully and routes correctly.
+JWT authentication and role-based authorization are enforced server-side.
+Fine creation is transactional and creates one record per offence.
+Fine amounts are resolved server-side from active offence rules.
+Admin correction is auditable.
+Student access is limited to the authenticated student's own data.
+The system supports search/filtering and basic reporting.
+Production configuration contains no hard-coded credentials or secrets.
+# 20. Implementation Phases
+Phase 1: project setup, UI shell, routing, authentication screens.
+Phase 2: Admin/Faculty/Student dashboards and role protection.
+Phase 3: student search and verification.
+Phase 4: offence catalogue and fine assignment.
+Phase 5: fine history, Admin correction and audit.
+Phase 6: Student portal, rule book and notifications.
+Phase 7: reports, testing, security hardening and deployment.
+Phase 8: optional approved third-party student-data integration.
