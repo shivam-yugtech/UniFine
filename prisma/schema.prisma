@@ -14,7 +14,7 @@ model User {
   passwordHash String
   name         String
   role         String
-  rollNumber   String? // only for STUDENT role — links to Student.rollNumber
+  rollNumber   String? @unique // only for STUDENT role — links to Student.rollNumber; one login per student
   department   String?
   designation  String?
   status       String   @default("ACTIVE")

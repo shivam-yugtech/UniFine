@@ -4,11 +4,9 @@
  * Amounts are always server-resolved from the Offence catalogue (TRD §9).
  */
 import { PrismaClient } from "@prisma/client";
-import { createHash } from "crypto";
+import { hashPassword } from "../src/lib/password";
 
 const db = new PrismaClient();
-
-const hash = (pwd: string) => createHash("sha256").update(pwd).digest("hex");
 
 const daysAgo = (n: number) => {
   const d = new Date();
@@ -32,7 +30,7 @@ async function main() {
   const admin = await db.user.create({
     data: {
       email: "admin@krmu.ac.in",
-      passwordHash: hash("Admin@123"),
+      passwordHash: hashPassword("Admin@123"),
       name: "Dr. Meera Kapoor",
       role: "ADMIN",
       designation: "Dean, Student Affairs",
@@ -43,7 +41,7 @@ async function main() {
   const faculty1 = await db.user.create({
     data: {
       email: "faculty@krmu.ac.in",
-      passwordHash: hash("Faculty@123"),
+      passwordHash: hashPassword("Faculty@123"),
       name: "Prof. Rajesh Choudhary",
       role: "FACULTY",
       designation: "Associate Professor",
@@ -54,7 +52,7 @@ async function main() {
   const faculty2 = await db.user.create({
     data: {
       email: "s.neha@krmu.ac.in",
-      passwordHash: hash("Faculty@123"),
+      passwordHash: hashPassword("Faculty@123"),
       name: "Dr. Neha Sharma",
       role: "FACULTY",
       designation: "Professor & Proctor",
@@ -98,7 +96,7 @@ async function main() {
   await db.user.create({
     data: {
       email: "student@krmu.ac.in",
-      passwordHash: hash("Student@123"),
+      passwordHash: hashPassword("Student@123"),
       name: "Aarav Choudhary",
       role: "STUDENT",
       rollNumber: "2201560042",

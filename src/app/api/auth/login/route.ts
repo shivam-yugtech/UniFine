@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createHash } from "crypto";
+import type { Student } from "@prisma/client";
 import { db } from "@/lib/db";
-
-const hash = (pwd: string) => createHash("sha256").update(pwd).digest("hex");
+import { verifyPassword } from "@/lib/password";
 
 export async function POST(req: NextRequest) {
   try {
@@ -13,14 +12,14 @@ export async function POST(req: NextRequest) {
     const user = await db.user.findUnique({
       where: { email: String(email).trim().toLowerCase() },
     });
-    if (!user || user.passwordHash !== hash(String(password))) {
+    if (!user || !verifyPassword(String(password), user.passwordHash)) {
       return NextResponse.json({ error: "Invalid credentials. Please check and try again." }, { status: 401 });
     }
     if (user.status !== "ACTIVE") {
       return NextResponse.json({ error: "Account is inactive. Contact the administrator." }, { status: 403 });
     }
 
-    let student = null;
+    let student: Student | null = null;
     if (user.role === "STUDENT" && user.rollNumber) {
       student = await db.student.findUnique({ where: { rollNumber: user.rollNumber } });
     }

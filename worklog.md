@@ -40,3 +40,22 @@ Work Log:
 
 Stage Summary:
 - All roll numbers across DB seed, UI, and API payloads now use the 10-digit numeric KRMU format (e.g. 2201560042 / pattern of 2501560006). Demo logins unchanged: student@krmu.ac.in / Student@123.
+
+---
+Task ID: 3
+Agent: Main Agent (Super Z)
+Task: Add Signup + Signin for Faculty and Students so multiple students/faculty can self-register and log into their own dashboards.
+
+Work Log:
+- Created missing src/components/unifine/types.ts (Role, SessionUser, StudentT, FineT, OffenceT, AuditT, RuleEntryT, NotificationT, SummaryT) — latent bug: all components imported from it but the file did not exist.
+- Created src/lib/password.ts: salted scrypt hashing ("s2:<salt>:<hash>") + timing-safe verify with legacy sha256 fallback; migrated seed.ts and login route to it.
+- Prisma: User.rollNumber -> @unique (one login per student roll; SQLite allows multiple NULLs for faculty/admin). db push + re-seed OK.
+- New POST /api/auth/signup: STUDENT/FACULTY self-registration (ADMIN rejected 403). Validation: name 3-80, email regex + uniqueness 409, password 6-72, roll must be exactly 10 digits (e.g. 2501560006) with school from KRMU list, programme, year. Existing roll in Student table -> account links to university record; unknown roll -> Student record auto-provisioned with random avatar colour + welcome notification. Duplicate roll account -> 409. Returns login-shaped session so client auto-signs-in.
+- Login route: verifyPassword() replaces raw sha256 compare.
+- Login.tsx rebuilt: Sign In | Sign Up segmented switch (bottom links toggle too). Sign-in keeps role tabs + demo prefill. Sign-up has Student/Faculty role cards; student fields = name, 10-digit roll (numeric, auto-strip non-digits, placeholder 2501560006), email, password, school select, programme, year; faculty fields = name, email, password, school, optional designation (default Assistant Professor). Admin note shown. Theme unchanged (blue gradient, rounded cards).
+- Tests (API): new student 201; dup email 409; dup roll 409; bad roll 400; admin 403; faculty signup+login 200; new-student fines []; demo logins (scrypt) OK; wrong password 401. Temp rows cleaned.
+- Tests (browser E2E): signed up "Rahul Sharma" roll 2501560006 via UI -> auto-login to student dashboard (Rs 0 balance), profile shows all details, welcome notification received; signed out -> signed back in with new credentials; faculty signup form variant verified (roll hidden, designation shown); faculty can search/fine the new student.
+- bun run lint clean; tsc --noEmit: 0 errors in app code.
+
+Stage Summary:
+- UniFine now has full self-service auth: many students and faculty can register and see their own dashboards. Demo account Rahul Sharma / rahul.sharma@krmu.ac.in / Student@123 (roll 2501560006) exists alongside original demo logins. Passwords stored salted-scrypt hashed.
