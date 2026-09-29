@@ -23,3 +23,20 @@ Stage Summary:
 - Deliverable: runnable Next.js 16 SPA at `/` — UniFine KRMU Fine Management portal with 3 role-based dashboards, full PRD coverage (FR-01…FR-18 core flows), theme matched to user's reference image, KRMU branding throughout.
 - Key files: prisma/schema.prisma, scripts/seed.ts, src/app/api/** (12 routes), src/components/unifine/** (Shell, Landing, Login, StudentApp, FacultyApp, AdminApp, shared, common-views), src/app/page.tsx.
 - Verified acceptance criteria: verification-gated assignment, blocked submit without offence, separate records per offence, read-only student view, auditable admin correction, active-only offences, role-restricted APIs, search/filter + reports, responsive layouts.
+
+---
+Task ID: 2
+Agent: Main Agent (Super Z)
+Task: Change student roll number format from "KRMU22CSE0042" to 10-digit numeric KRMU format like "2501560006" (YY + 4-digit programme code + 4-digit serial).
+
+Work Log:
+- Grep'd entire codebase for old roll format; found all occurrences in scripts/seed.ts + one placeholder in FacultyApp.tsx.
+- Mapped all 12 students to 10-digit rolls preserving admission-year prefix and serial: 2201560042 (Aarav/demo), 2301560117, 2101400089, 2301410034, 2401620206, 2202110121, 2302160058, 2203010093, 2103020147, 2304010076, 2204020102, 2405010188. Programme codes: CSE=0156, ECE=0140, ME=0141, CSE-AIML=0162, BBA=0211, BCom=0216, BALLB=0301, BBALLB=0302, BPharm=0401, DPharm=0402, BSc=0501.
+- Updated seed.ts (students, demo student login rollNumber, 23 fine seeds, notification audience refs); student emails auto-derive to e.g. 2201560042@krmu.ac.in.
+- FacultyApp "Find Student" input: placeholder "e.g. 2201560042", added inputMode="numeric", removed uppercase class (not needed for digits).
+- Re-ran scripts/seed.ts — DB rebuilt cleanly (12 students, 23 fines, 40 audits, 14 rules, 8 notifications).
+- Verified: student login returns rollNumber 2201560042; /api/students/search?rollNumber=2201560042 returns full record + stats; fines lookup by new roll works; student Profile view + mobile header show new roll; faculty Assign-Fine search placeholder shows new format; full E2E UI search finds Aarav Choudhary (2201560042).
+- Note: agent-browser snapshot refs can resolve to hidden mobile-layout duplicate elements (0x0 rect) — test-tool artifact only, app unaffected. bun run lint clean; dev.log clean.
+
+Stage Summary:
+- All roll numbers across DB seed, UI, and API payloads now use the 10-digit numeric KRMU format (e.g. 2201560042 / pattern of 2501560006). Demo logins unchanged: student@krmu.ac.in / Student@123.

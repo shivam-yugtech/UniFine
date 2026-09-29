@@ -321,8 +321,9 @@ function AssignFine({ session, onDone }: { session: SessionUser; onDone: () => v
                 value={roll}
                 onChange={(e) => setRoll(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && search()}
-                placeholder="e.g. KRMU22CSE0042"
-                className="h-11 rounded-xl border-slate-200 bg-slate-50/70 pl-9 uppercase tracking-wide text-sm"
+                placeholder="e.g. 2201560042"
+                inputMode="numeric"
+                className="h-11 rounded-xl border-slate-200 bg-slate-50/70 pl-9 tracking-wide text-sm"
               />
             </div>
             <Button

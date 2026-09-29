@@ -64,18 +64,18 @@ async function main() {
 
   /* ---------------- Students ---------------- */
   const studentSeed = [
-    ["KRMU22CSE0042", "Aarav Choudhary", "School of Engineering & Technology", "B.Tech CSE", "3rd Year", "#3b82f6"],
-    ["KRMU23CSE0117", "Priya Sharma", "School of Engineering & Technology", "B.Tech CSE", "2nd Year", "#8b5cf6"],
-    ["KRMU21ECE0089", "Rohan Verma", "School of Engineering & Technology", "B.Tech ECE", "4th Year", "#f59e0b"],
-    ["KRMU23MEC0034", "Kabir Singh", "School of Engineering & Technology", "B.Tech ME", "2nd Year", "#10b981"],
-    ["KRMU24CSC0206", "Ananya Gupta", "School of Engineering & Technology", "B.Tech CSE (AI/ML)", "1st Year", "#ec4899"],
-    ["KRMU22MBC0121", "Ishita Jain", "School of Management & Commerce", "BBA", "3rd Year", "#06b6d4"],
-    ["KRMU23BBC0058", "Arjun Mehta", "School of Management & Commerce", "B.Com (Hons)", "2nd Year", "#ef4444"],
-    ["KRMU22LBC0093", "Sneha Reddy", "School of Law", "BA LLB (Hons)", "3rd Year", "#14b8a6"],
-    ["KRMU21LBC0147", "Vikas Yadav", "School of Law", "BBA LLB", "4th Year", "#a855f7"],
-    ["KRMU23PBC0076", "Neha Kaur", "School of Pharmacy", "B.Pharm", "2nd Year", "#f97316"],
-    ["KRMU22PBC0102", "Aditya Ranjan", "School of Pharmacy", "D.Pharm", "3rd Year", "#0ea5e9"],
-    ["KRMU24BSB0188", "Pooja Bhatt", "School of Basic Sciences", "B.Sc (Hons) Maths", "1st Year", "#22c55e"],
+    ["2201560042", "Aarav Choudhary", "School of Engineering & Technology", "B.Tech CSE", "3rd Year", "#3b82f6"],
+    ["2301560117", "Priya Sharma", "School of Engineering & Technology", "B.Tech CSE", "2nd Year", "#8b5cf6"],
+    ["2101400089", "Rohan Verma", "School of Engineering & Technology", "B.Tech ECE", "4th Year", "#f59e0b"],
+    ["2301410034", "Kabir Singh", "School of Engineering & Technology", "B.Tech ME", "2nd Year", "#10b981"],
+    ["2401620206", "Ananya Gupta", "School of Engineering & Technology", "B.Tech CSE (AI/ML)", "1st Year", "#ec4899"],
+    ["2202110121", "Ishita Jain", "School of Management & Commerce", "BBA", "3rd Year", "#06b6d4"],
+    ["2302160058", "Arjun Mehta", "School of Management & Commerce", "B.Com (Hons)", "2nd Year", "#ef4444"],
+    ["2203010093", "Sneha Reddy", "School of Law", "BA LLB (Hons)", "3rd Year", "#14b8a6"],
+    ["2103020147", "Vikas Yadav", "School of Law", "BBA LLB", "4th Year", "#a855f7"],
+    ["2304010076", "Neha Kaur", "School of Pharmacy", "B.Pharm", "2nd Year", "#f97316"],
+    ["2204020102", "Aditya Ranjan", "School of Pharmacy", "D.Pharm", "3rd Year", "#0ea5e9"],
+    ["2405010188", "Pooja Bhatt", "School of Basic Sciences", "B.Sc (Hons) Maths", "1st Year", "#22c55e"],
   ] as const;
 
   const students: Record<string, string> = {};
@@ -101,7 +101,7 @@ async function main() {
       passwordHash: hash("Student@123"),
       name: "Aarav Choudhary",
       role: "STUDENT",
-      rollNumber: "KRMU22CSE0042",
+      rollNumber: "2201560042",
       department: "School of Engineering & Technology",
       designation: "B.Tech CSE · 3rd Year",
     },
@@ -142,30 +142,30 @@ async function main() {
   };
   const fineSeeds: FineSeed[] = [
     // ---- Aarav (demo student): mixed history ----
-    { roll: "KRMU22CSE0042", code: "OFF-003", by: faculty1.id, reason: "Using phone during Data Structures lecture (Block C, Room 214).", issued: 118, due: 104, status: "PAID" },
-    { roll: "KRMU22CSE0042", code: "OFF-006", by: faculty1.id, reason: " 'Introduction to Algorithms' not returned past due date.", issued: 90, due: 76, status: "PAID" },
-    { roll: "KRMU22CSE0042", code: "OFF-001", by: faculty2.id, reason: "Found in casuals during official university event.", issued: 47, due: 33, status: "PAID" },
-    { roll: "KRMU22CSE0042", code: "OFF-002", by: faculty1.id, reason: "Reported 20 minutes late to OS lab session.", issued: 12, due: -2, status: "OVERDUE" },
-    { roll: "KRMU22CSE0042", code: "OFF-010", by: faculty2.id, reason: "ID card not produced at main gate check.", issued: 6, due: 9, status: "PENDING", corrected: true, oldStatus: "PENDING", auditNote: "Reason refined after gate-register cross-check." },
+    { roll: "2201560042", code: "OFF-003", by: faculty1.id, reason: "Using phone during Data Structures lecture (Block C, Room 214).", issued: 118, due: 104, status: "PAID" },
+    { roll: "2201560042", code: "OFF-006", by: faculty1.id, reason: " 'Introduction to Algorithms' not returned past due date.", issued: 90, due: 76, status: "PAID" },
+    { roll: "2201560042", code: "OFF-001", by: faculty2.id, reason: "Found in casuals during official university event.", issued: 47, due: 33, status: "PAID" },
+    { roll: "2201560042", code: "OFF-002", by: faculty1.id, reason: "Reported 20 minutes late to OS lab session.", issued: 12, due: -2, status: "OVERDUE" },
+    { roll: "2201560042", code: "OFF-010", by: faculty2.id, reason: "ID card not produced at main gate check.", issued: 6, due: 9, status: "PENDING", corrected: true, oldStatus: "PENDING", auditNote: "Reason refined after gate-register cross-check." },
     // ---- others ----
-    { roll: "KRMU23CSE0117", code: "OFF-001", by: faculty2.id, reason: "Dress code violation at Academic Block A.", issued: 62, due: 48, status: "PAID" },
-    { roll: "KRMU23CSE0117", code: "OFF-002", by: faculty1.id, reason: "Late to morning lecture twice in the same week.", issued: 20, due: 6, status: "PENDING" },
-    { roll: "KRMU21ECE0089", code: "OFF-008", by: faculty2.id, reason: "Bike parked at Block-B entrance (no-parking zone).", issued: 75, due: 61, status: "PAID" },
-    { roll: "KRMU21ECE0089", code: "OFF-004", by: faculty1.id, reason: "Littered near food court seating area.", issued: 30, due: 16, status: "PENDING" },
-    { roll: "KRMU21ECE0089", code: "OFF-011", by: faculty1.id, reason: "Attendance 68% in Digital Signal Processing — below mandate.", issued: 15, due: 1, status: "OVERDUE" },
-    { roll: "KRMU23MEC0034", code: "OFF-009", by: faculty2.id, reason: "Loud music in hostel Block-F after quiet hours (11 PM).", issued: 40, due: 26, status: "PAID" },
-    { roll: "KRMU24CSC0206", code: "OFF-010", by: faculty1.id, reason: "Freshman orientation — ID not carried.", issued: 55, due: 41, status: "PAID" },
-    { roll: "KRMU24CSC0206", code: "OFF-006", by: faculty1.id, reason: "Two library reference books overdue (Communicative English).", issued: 9, due: 12, status: "PENDING" },
-    { roll: "KRMU22MBC0121", code: "OFF-007", by: faculty2.id, reason: "Queue jumping and argument with cafeteria staff.", issued: 66, due: 52, status: "PAID" },
-    { roll: "KRMU22MBC0121", code: "OFF-003", by: faculty2.id, reason: "Phone usage during Business Statistics class.", issued: 25, due: 11, status: "OVERDUE" },
-    { roll: "KRMU23BBC0058", code: "OFF-004", by: faculty1.id, reason: "Food wrappers disposed in corridor dustbin-free zone.", issued: 44, due: 30, status: "PAID" },
-    { roll: "KRMU22LBC0093", code: "OFF-002", by: faculty2.id, reason: "Late entry to Moot Court practice session.", issued: 18, due: 4, status: "PENDING" },
-    { roll: "KRMU22LBC0093", code: "OFF-001", by: faculty2.id, reason: "Improper uniform accessories at Law Block.", issued: 5, due: 10, status: "PENDING" },
-    { roll: "KRMU21LBC0147", code: "OFF-013", by: faculty1.id, reason: "Found with prepared notes inside Contract Law midterm hall.", issued: 100, due: 86, status: "PAID" },
-    { roll: "KRMU21LBC0147", code: "OFF-008", by: faculty2.id, reason: "Car parked in faculty parking bay (Bay 12) for 3 days.", issued: 34, due: 20, status: "PENDING", corrected: true, oldStatus: "PENDING", auditNote: "Amount corrected from ₹600 to ₹300 — category clarified as student violation." },
-    { roll: "KRMU23PBC0076", code: "OFF-009", by: faculty1.id, reason: "Hostel corridor disturbance during study hours.", issued: 28, due: 14, status: "PAID" },
-    { roll: "KRMU22PBC0102", code: "OFF-010", by: faculty1.id, reason: "ID card missing during pharmacy lab inspection.", issued: 11, due: -3, status: "OVERDUE" },
-    { roll: "KRMU24BSB0188", code: "OFF-002", by: faculty2.id, reason: "Late to Calculus tutorial — first warning.", issued: 8, due: 13, status: "PENDING" },
+    { roll: "2301560117", code: "OFF-001", by: faculty2.id, reason: "Dress code violation at Academic Block A.", issued: 62, due: 48, status: "PAID" },
+    { roll: "2301560117", code: "OFF-002", by: faculty1.id, reason: "Late to morning lecture twice in the same week.", issued: 20, due: 6, status: "PENDING" },
+    { roll: "2101400089", code: "OFF-008", by: faculty2.id, reason: "Bike parked at Block-B entrance (no-parking zone).", issued: 75, due: 61, status: "PAID" },
+    { roll: "2101400089", code: "OFF-004", by: faculty1.id, reason: "Littered near food court seating area.", issued: 30, due: 16, status: "PENDING" },
+    { roll: "2101400089", code: "OFF-011", by: faculty1.id, reason: "Attendance 68% in Digital Signal Processing — below mandate.", issued: 15, due: 1, status: "OVERDUE" },
+    { roll: "2301410034", code: "OFF-009", by: faculty2.id, reason: "Loud music in hostel Block-F after quiet hours (11 PM).", issued: 40, due: 26, status: "PAID" },
+    { roll: "2401620206", code: "OFF-010", by: faculty1.id, reason: "Freshman orientation — ID not carried.", issued: 55, due: 41, status: "PAID" },
+    { roll: "2401620206", code: "OFF-006", by: faculty1.id, reason: "Two library reference books overdue (Communicative English).", issued: 9, due: 12, status: "PENDING" },
+    { roll: "2202110121", code: "OFF-007", by: faculty2.id, reason: "Queue jumping and argument with cafeteria staff.", issued: 66, due: 52, status: "PAID" },
+    { roll: "2202110121", code: "OFF-003", by: faculty2.id, reason: "Phone usage during Business Statistics class.", issued: 25, due: 11, status: "OVERDUE" },
+    { roll: "2302160058", code: "OFF-004", by: faculty1.id, reason: "Food wrappers disposed in corridor dustbin-free zone.", issued: 44, due: 30, status: "PAID" },
+    { roll: "2203010093", code: "OFF-002", by: faculty2.id, reason: "Late entry to Moot Court practice session.", issued: 18, due: 4, status: "PENDING" },
+    { roll: "2203010093", code: "OFF-001", by: faculty2.id, reason: "Improper uniform accessories at Law Block.", issued: 5, due: 10, status: "PENDING" },
+    { roll: "2103020147", code: "OFF-013", by: faculty1.id, reason: "Found with prepared notes inside Contract Law midterm hall.", issued: 100, due: 86, status: "PAID" },
+    { roll: "2103020147", code: "OFF-008", by: faculty2.id, reason: "Car parked in faculty parking bay (Bay 12) for 3 days.", issued: 34, due: 20, status: "PENDING", corrected: true, oldStatus: "PENDING", auditNote: "Amount corrected from ₹600 to ₹300 — category clarified as student violation." },
+    { roll: "2304010076", code: "OFF-009", by: faculty1.id, reason: "Hostel corridor disturbance during study hours.", issued: 28, due: 14, status: "PAID" },
+    { roll: "2204020102", code: "OFF-010", by: faculty1.id, reason: "ID card missing during pharmacy lab inspection.", issued: 11, due: -3, status: "OVERDUE" },
+    { roll: "2405010188", code: "OFF-002", by: faculty2.id, reason: "Late to Calculus tutorial — first warning.", issued: 8, due: 13, status: "PENDING" },
   ];
 
   const createdFines: { id: string; seed: FineSeed; amount: number }[] = [];
@@ -273,7 +273,7 @@ async function main() {
   ] as const;
   for (const [type, title, message] of aaravNotifs) {
     await db.notification.create({
-      data: { audience: "USER", userId: students["KRMU22CSE0042"], type, title, message, read: false },
+      data: { audience: "USER", userId: students["2201560042"], type, title, message, read: false },
     });
   }
 
