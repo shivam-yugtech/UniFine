@@ -72,7 +72,7 @@ export function Shell({
                     <Menu className="h-5 w-5" />
                   </button>
                 </SheetTrigger>
-                <SheetContent side="left" className="w-72 rounded-r-3xl border-0 p-4">
+                <SheetContent side="left" className="flex w-72 flex-col overflow-y-auto rounded-r-3xl border-0 p-4">
                   <SheetHeader className="p-0 pb-3 text-left">
                     <SheetTitle className="flex items-center gap-2.5">
                       <KrmuLogo size={36} />
@@ -83,7 +83,7 @@ export function Shell({
                     </SheetTitle>
                   </SheetHeader>
                   <SideNav nav={nav} view={view} onView={(k) => { onView(k); setMenuOpen(false); }} />
-                  <div className="mt-4">
+                  <div className="mt-auto pt-4">
                     <UserCard session={session} onLogout={onLogout} />
                   </div>
                 </SheetContent>
@@ -210,6 +210,15 @@ export function Shell({
                       {unreadCount > 9 ? "9+" : unreadCount}
                     </span>
                   )}
+                </button>
+                <button
+                  onClick={onLogout}
+                  aria-label="Sign out"
+                  title="Sign out"
+                  className="flex h-10 items-center justify-center gap-1.5 rounded-xl bg-white px-3 text-xs font-bold text-rose-500 shadow-sm ring-1 ring-rose-100 transition hover:bg-rose-50"
+                >
+                  <LogOut className="h-4 w-4" />
+                  <span className="hidden xl:inline">Sign out</span>
                 </button>
                 <Avatar name={session.name} color="#3b82f6" size={40} />
               </div>

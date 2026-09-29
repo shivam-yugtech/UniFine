@@ -59,3 +59,19 @@ Work Log:
 
 Stage Summary:
 - UniFine now has full self-service auth: many students and faculty can register and see their own dashboards. Demo account Rahul Sharma / rahul.sharma@krmu.ac.in / Student@123 (roll 2501560006) exists alongside original demo logins. Passwords stored salted-scrypt hashed.
+
+---
+Task ID: 4
+Agent: Main Agent (Super Z)
+Task: Admin dashboard me logout option easily visible nahi tha — logout discoverability fix for all roles.
+
+Work Log:
+- Root cause: logout sirf 2 chhupe hue jagah tha — desktop sidebar bottom (UserCard) aur mobile hamburger drawer ke andar; admin (7 nav items) me notice nahi hota tha.
+- Shell.tsx desktop header: Notifications bell ke bagal me dedicated rose "Sign out" button add kiya (LogOut icon + label >=xl, aria-label="Sign out", hover rose-50) — ab har role (Admin/Faculty/Student) ke header me directly visible.
+- Shell.tsx mobile drawer: SheetContent ko flex flex-col + overflow-y-auto banaya aur UserCard ko mt-auto se bottom-pin kiya — chhoti screens par bhi Sign out cut nahi hoga, scroll ho jayega.
+- Browser E2E (desktop 1440x900): admin login → header me visible "Sign out" (102x40px) → click → landing par wapas. Screenshot: scripts/verify-admin-logout.png.
+- Browser E2E (mobile 390x844): admin login → drawer open → Sign out fully visible (232x32, top 784 < 844, drawer non-scrollable = sab fit) → click → landing + drawer closed. Screenshot: scripts/verify-mobile-drawer-logout.png.
+- bun run lint clean.
+
+Stage Summary:
+- Logout ab teeno roles ke liye do jagah easily accessible: (1) desktop header top-right rose Sign out button, (2) sidebar/drawer UserCard me. Mobile drawer scroll-safe. Session clear + landing redirect verified on both viewports.
