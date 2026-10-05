@@ -127,7 +127,7 @@ export function Landing({ onEnter }: { onEnter: (role?: string) => void }) {
 
       <main className="mx-auto max-w-5xl px-6 pb-16">
         {/* Role cards */}
-        <section className="-mt-10 grid gap-4 sm:grid-cols-3" aria-label="Portals">
+        <section className="mt-8 grid gap-4 sm:grid-cols-3" aria-label="Portals">
           {ROLES.map((r) => (
             <button
               key={r.role}
