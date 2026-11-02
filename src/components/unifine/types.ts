@@ -10,6 +10,8 @@ export interface SessionUser {
   rollNumber: string | null;
   department: string | null;
   designation: string | null;
+  /** HMAC-signed session token issued by /api/auth/login — sent as a Bearer token */
+  token: string;
 }
 
 export interface StudentT {

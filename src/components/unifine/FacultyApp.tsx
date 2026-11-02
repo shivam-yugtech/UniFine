@@ -8,7 +8,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Skeleton } from "@/components/ui/skeleton";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -29,10 +28,13 @@ import {
   EmptyState,
   CardsSkeleton,
   StatSkeleton,
+  ErrorState,
 } from "./shared";
-import { NotificationsView } from "./common-views";
+import { NotificationsView, RuleBookView } from "./common-views";
+import { Stagger, StaggerItem } from "./motion";
 import { Avatar } from "./Avatar";
-import { api, inr, fmtDate, toCsv, downloadCsv } from "./utils";
+import { api, inr, fmtDate, toCsv, downloadCsv, localISODate } from "./utils";
+import { toast } from "@/hooks/use-toast";
 import type { FineT, OffenceT, SessionUser, StudentT, SummaryT } from "./types";
 import {
   AlertTriangle,
@@ -51,11 +53,10 @@ import {
   ShieldCheck,
   UserRound,
   Users,
-  Wallet,
   History,
+  ScrollText,
+  Bell,
 } from "lucide-react";
-
-type Nav = "home" | "assign" | "history" | "notifications";
 
 /* ================= Faculty portal ================= */
 export function FacultyApp({
@@ -72,6 +73,7 @@ export function FacultyApp({
       {view === "home" && <FacultyHome session={session} onView={onView} />}
       {view === "assign" && <AssignFine session={session} onDone={() => onView("home")} />}
       {view === "history" && <FineHistory session={session} />}
+      {view === "rulebook" && <RuleBookView session={session} />}
       {view === "notifications" && <NotificationsView session={session} />}
     </div>
   );
@@ -80,45 +82,75 @@ export function FacultyApp({
 /* ---------------- Home ---------------- */
 function FacultyHome({ session, onView }: { session: SessionUser; onView: (v: string) => void }) {
   const [summary, setSummary] = useState<SummaryT | null>(null);
+  const [summaryError, setSummaryError] = useState("");
   const [recent, setRecent] = useState<FineT[] | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
-    api<SummaryT>(session, "/api/reports/summary?scope=me").then(setSummary).catch(() => setSummary(undefined as never));
-    api<{ fines: FineT[] }>(session, `/api/fines?issuedBy=${session.id}`)
-      .then((d) => setRecent(d.fines))
-      .catch(() => setRecent([]));
-  }, [session]);
+    let alive = true;
+    api<SummaryT>(session, "/api/reports/summary?scope=me")
+      .then((d) => alive && (setSummary(d), setSummaryError("")))
+      .catch((e) => alive && setSummaryError(e instanceof Error ? e.message : "Could not load your summary."));
+    api<{ fines: FineT[] }>(session, `/api/fines?issuedBy=${encodeURIComponent(session.id)}`)
+      .then((d) => alive && setRecent(d.fines))
+      .catch(() => alive && setRecent([]));
+    return () => {
+      alive = false;
+    };
+  }, [session, reloadKey]);
 
   const awaiting = (summary?.pendingCount ?? 0) + (summary?.overdueCount ?? 0);
 
   return (
     <>
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {summary === null ? (
-          <StatSkeleton />
-        ) : summary ? (
-          <>
-            <StatCard label="Fines Issued" value={summary.total} sub="by you, all time" tone="blue" icon={<FilePlus2 className="h-4 w-4" />} />
-            <StatCard label="Awaiting Payment" value={awaiting} sub={`${summary.overdueCount} overdue`} tone="amber" icon={<AlertTriangle className="h-4 w-4" />} />
-            <StatCard label="Resolved" value={summary.paidCount} sub={inr(summary.collected) + " collected"} tone="emerald" icon={<CheckCircle2 className="h-4 w-4" />} />
-            <StatCard label="Students Impacted" value={summary.studentsWithFines} sub="unique students" tone="violet" icon={<Users className="h-4 w-4" />} />
-          </>
-        ) : null}
-      </div>
+      <Stagger className="grid grid-cols-6 gap-3 lg:grid-cols-4">
+        <StaggerItem className="col-span-3 lg:col-span-1">
+          <ColorTile label="Assign Fine" icon={<PlusCircle />} tone="rose" onClick={() => onView("assign")} />
+        </StaggerItem>
+        <StaggerItem className="col-span-3 lg:col-span-1">
+          <ColorTile label="Fine History" icon={<History />} tone="violet" onClick={() => onView("history")} />
+        </StaggerItem>
+        <StaggerItem className="col-span-2 lg:col-span-1">
+          <ColorTile label="Collection" value={summary ? inr(summary.collected) : "—"} icon={<BadgeIndianRupee />} tone="emerald" onClick={() => onView("history")} />
+        </StaggerItem>
+        <StaggerItem className="col-span-2 lg:col-span-1">
+          <ColorTile label="Rule Book" icon={<ScrollText />} tone="sky" onClick={() => onView("rulebook")} />
+        </StaggerItem>
+        <StaggerItem className="col-span-2 lg:hidden">
+          <ColorTile label="Alerts" icon={<Bell />} tone="amber" onClick={() => onView("notifications")} />
+        </StaggerItem>
+      </Stagger>
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <ColorTile label="Assign Fine" icon={<PlusCircle className="h-12 w-12" />} tone="rose" onClick={() => onView("assign")} />
-        <ColorTile label="Fine History" icon={<History className="h-11 w-11" />} tone="violet" onClick={() => onView("history")} />
-        <ColorTile label="My Collection" value={summary ? inr(summary.collected) : "—"} icon={<BadgeIndianRupee className="h-11 w-11" />} tone="emerald" onClick={() => onView("history")} />
-        <ColorTile label="Alerts" icon={<Wallet className="h-11 w-11" />} tone="amber" onClick={() => onView("notifications")} />
-      </div>
+      {summaryError ? (
+        <ErrorState
+          message={summaryError}
+          onRetry={() => {
+            setSummaryError("");
+            setSummary(null);
+            setReloadKey((k) => k + 1);
+          }}
+        />
+      ) : (
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          {summary === null ? (
+            <StatSkeleton />
+          ) : (
+            <>
+              <StatCard label="Fines Issued" value={summary.total} sub="by you, all time" tone="blue" icon={<FilePlus2 className="h-4 w-4" />} />
+              <StatCard label="Awaiting Payment" value={awaiting} sub={`${summary.overdueCount} overdue`} tone="amber" icon={<AlertTriangle className="h-4 w-4" />} />
+              <StatCard label="Resolved" value={summary.paidCount} sub={inr(summary.collected) + " collected"} tone="emerald" icon={<CheckCircle2 className="h-4 w-4" />} />
+              <StatCard label="Students Impacted" value={summary.studentsWithFines} sub="unique students" tone="violet" icon={<Users className="h-4 w-4" />} />
+            </>
+          )}
+        </div>
+      )}
 
       <SectionCard>
         <SectionHeader
           title="My Recent Activity"
-          icon={<History className="h-4 w-4 text-sky-500" />}
+          icon={<History className="h-4 w-4 text-brand-500" />}
           action={
-            <Button variant="ghost" size="sm" className="h-8 rounded-lg text-xs font-bold text-sky-600 hover:bg-sky-50" onClick={() => onView("history")}>
+            <Button variant="ghost" size="sm" className="h-8 rounded-lg text-xs font-bold text-brand-600 hover:bg-brand-50" onClick={() => onView("history")}>
               View all
             </Button>
           }
@@ -156,10 +188,7 @@ function AssignFine({ session, onDone }: { session: SessionUser; onDone: () => v
 
   const [offences, setOffences] = useState<OffenceT[] | null>(null);
   const [selected, setSelected] = useState<Record<string, { reason: string }>>({});
-  const [dueDate, setDueDate] = useState(() => {
-    const d = new Date(Date.now() + 14 * 86400000);
-    return d.toISOString().slice(0, 10);
-  });
+  const [dueDate, setDueDate] = useState(() => localISODate(new Date(Date.now() + 14 * 86400000)));
 
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -170,7 +199,10 @@ function AssignFine({ session, onDone }: { session: SessionUser; onDone: () => v
     if (step >= 2 && !offences) {
       api<{ offences: OffenceT[] }>(session, "/api/offences?active=true")
         .then((d) => setOffences(d.offences))
-        .catch(() => setOffences([]));
+        .catch((e) => {
+          setOffences([]);
+          toast({ title: "Could not load offences", description: e instanceof Error ? e.message : "", variant: "destructive" });
+        });
     }
   }, [step, offences, session]);
 
@@ -224,7 +256,9 @@ function AssignFine({ session, onDone }: { session: SessionUser; onDone: () => v
           dueDate,
         }),
       });
+      setConfirmOpen(false);
       setSuccess(data.created);
+      toast({ title: "Fine assigned", description: `${data.created.length} record(s) created and the student was notified.` });
     } catch (e) {
       setSubmitError(e instanceof Error ? e.message : "Submission failed.");
       setConfirmOpen(false);
@@ -250,7 +284,7 @@ function AssignFine({ session, onDone }: { session: SessionUser; onDone: () => v
           <span className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
             <CheckCircle2 className="h-9 w-9" />
           </span>
-          <h2 className="mt-4 text-xl font-extrabold text-slate-800">Fine{success.length > 1 ? "s" : ""} assigned successfully</h2>
+          <h2 className="mt-4 text-xl font-bold text-slate-800">Fine{success.length > 1 ? "s" : ""} assigned successfully</h2>
           <p className="mt-1 max-w-sm text-sm text-slate-500">
             {success.length} separate record{success.length > 1 ? "s" : ""} created for{" "}
             <b>{found?.student.name}</b> ({found?.student.rollNumber}). The student has been notified.
@@ -260,19 +294,19 @@ function AssignFine({ session, onDone }: { session: SessionUser; onDone: () => v
           {success.map((r) => (
             <div key={r.fineId} className="flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3 ring-1 ring-slate-100">
               <span className="text-sm font-semibold text-slate-700">{r.offence}</span>
-              <span className="text-sm font-extrabold text-slate-800">{inr(r.amount)}</span>
+              <span className="text-sm font-bold text-slate-800">{inr(r.amount)}</span>
             </div>
           ))}
-          <div className="flex items-center justify-between rounded-2xl bg-gradient-to-r from-sky-500 to-blue-600 px-4 py-3 text-white">
+          <div className="flex items-center justify-between rounded-2xl bg-gradient-to-r from-brand-500 to-brand-600 px-4 py-3 text-white">
             <span className="text-sm font-bold">Total</span>
-            <span className="text-base font-extrabold">{inr(success.reduce((s, r) => s + r.amount, 0))}</span>
+            <span className="text-base font-bold">{inr(success.reduce((s, r) => s + r.amount, 0))}</span>
           </div>
         </div>
         <div className="mt-5 flex gap-3">
           <Button onClick={reset} variant="outline" className="flex-1 rounded-xl font-bold">
             <PlusCircle className="mr-1.5 h-4 w-4" /> Assign another
           </Button>
-          <Button onClick={onDone} className="flex-1 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 font-bold">
+          <Button onClick={onDone} className="flex-1 rounded-xl bg-gradient-to-r from-brand-500 to-brand-600 font-bold">
             Back to dashboard
           </Button>
         </div>
@@ -291,11 +325,11 @@ function AssignFine({ session, onDone }: { session: SessionUser; onDone: () => v
         ].map((s, i) => (
           <div key={s.n} className="flex flex-1 items-center gap-2">
             <span
-              className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-extrabold transition ${
+              className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold transition ${
                 step > s.n
                   ? "bg-emerald-500 text-white"
                   : step === s.n
-                    ? "bg-gradient-to-br from-sky-500 to-blue-600 text-white shadow-md shadow-blue-500/30"
+                    ? "bg-gradient-to-br from-brand-500 to-brand-600 text-white shadow-md shadow-brand-500/30"
                     : "bg-slate-100 text-slate-400"
               }`}
             >
@@ -312,15 +346,15 @@ function AssignFine({ session, onDone }: { session: SessionUser; onDone: () => v
       {/* STEP 1 — search & verify (FR-03, FR-04) */}
       {step === 1 && (
         <SectionCard className="fade-up">
-          <SectionHeader title="Find Student" icon={<Search className="h-4 w-4 text-sky-500" />} />
+          <SectionHeader title="Find Student" icon={<Search className="h-4 w-4 text-brand-500" />} />
           <Label className="text-xs font-bold text-slate-600">Roll number / Student ID</Label>
           <div className="mt-1.5 flex gap-2">
             <div className="relative flex-1">
               <UserRound className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <Input
                 value={roll}
-                onChange={(e) => setRoll(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && search()}
+                onChange={(e) => setRoll(e.target.value.replace(/\s/g, ""))}
+                onKeyDown={(e) => e.key === "Enter" && !searching && search()}
                 placeholder="e.g. 2201560042"
                 inputMode="numeric"
                 className="h-11 rounded-xl border-slate-200 bg-slate-50/70 pl-9 tracking-wide text-sm"
@@ -329,7 +363,7 @@ function AssignFine({ session, onDone }: { session: SessionUser; onDone: () => v
             <Button
               onClick={search}
               disabled={searching}
-              className="h-11 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 px-5 font-bold"
+              className="h-11 rounded-xl bg-gradient-to-r from-brand-500 to-brand-600 px-5 font-bold"
             >
               {searching ? <Loader2 className="h-4 w-4 animate-spin" /> : "Search"}
             </Button>
@@ -343,11 +377,11 @@ function AssignFine({ session, onDone }: { session: SessionUser; onDone: () => v
           )}
 
           {found && (
-            <div className="fade-up mt-5 rounded-2xl border border-sky-200 bg-sky-50/50 p-4">
+            <div className="fade-up mt-5 rounded-2xl border border-brand-200 bg-brand-50/50 p-4">
               <div className="flex items-center gap-3">
                 <Avatar name={found.student.name} color={found.student.photoColor} size={52} ring />
                 <div className="min-w-0 flex-1">
-                  <div className="text-sm font-extrabold text-slate-800">{found.student.name}</div>
+                  <div className="text-sm font-bold text-slate-800">{found.student.name}</div>
                   <div className="text-xs text-slate-500">{found.student.rollNumber}</div>
                   <div className="mt-0.5 text-[11px] text-slate-500">
                     {found.student.programme} · {found.student.year}
@@ -372,7 +406,7 @@ function AssignFine({ session, onDone }: { session: SessionUser; onDone: () => v
                   <p className="mb-2 text-[11px] leading-relaxed text-slate-500">
                     Confirm this is the intended student before offence selection becomes available.
                   </p>
-                  <Button onClick={() => setVerified(true)} className="w-full rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 font-bold">
+                  <Button onClick={() => setVerified(true)} className="w-full rounded-xl bg-gradient-to-r from-brand-500 to-brand-600 font-bold">
                     <ShieldCheck className="mr-1.5 h-4 w-4" /> Verify Student
                   </Button>
                 </div>
@@ -391,7 +425,7 @@ function AssignFine({ session, onDone }: { session: SessionUser; onDone: () => v
         <SectionCard className="fade-up">
           <SectionHeader
             title={`Select Offences — ${found.student.name.split(" ")[0]}`}
-            icon={<FileWarning className="h-4 w-4 text-sky-500" />}
+            icon={<FileWarning className="h-4 w-4 text-brand-500" />}
             action={
               <Button variant="ghost" size="sm" className="h-8 rounded-lg text-xs font-bold text-slate-500" onClick={() => setStep(1)}>
                 <ChevronLeft className="h-3.5 w-3.5" /> Back
@@ -408,20 +442,23 @@ function AssignFine({ session, onDone }: { session: SessionUser; onDone: () => v
           ) : (
             <>
               <div className="max-h-[22rem] space-y-2 overflow-y-auto pe-1 nice-scroll">
+                {offences.length === 0 && (
+                  <EmptyState title="No active offences" hint="Ask an administrator to add offences to the catalogue." />
+                )}
                 {offences.map((o) => {
                   const checked = !!selected[o.id];
                   return (
                     <label
                       key={o.id}
                       className={`flex cursor-pointer items-start gap-3 rounded-2xl border p-3.5 transition ${
-                        checked ? "border-sky-300 bg-sky-50/60 shadow-sm" : "border-slate-200/80 bg-white hover:border-sky-200"
+                        checked ? "border-brand-300 bg-brand-50/60 shadow-sm" : "border-slate-200/80 bg-white hover:border-brand-200"
                       }`}
                     >
                       <Checkbox checked={checked} onCheckedChange={() => toggleOffence(o.id)} className="mt-0.5" />
                       <span className="min-w-0 flex-1">
                         <span className="flex items-start justify-between gap-2">
                           <span className="text-sm font-bold text-slate-800">{o.name}</span>
-                          <span className={`shrink-0 text-sm font-extrabold ${checked ? "text-sky-600" : "text-slate-700"}`}>
+                          <span className={`shrink-0 text-sm font-bold ${checked ? "text-brand-600" : "text-slate-700"}`}>
                             {inr(o.amount)}
                           </span>
                         </span>
@@ -449,7 +486,7 @@ function AssignFine({ session, onDone }: { session: SessionUser; onDone: () => v
                   <Input
                     type="date"
                     value={dueDate}
-                    min={new Date().toISOString().slice(0, 10)}
+                    min={localISODate()}
                     onChange={(e) => setDueDate(e.target.value)}
                     className="mt-1.5 h-11 rounded-xl border-slate-200 bg-slate-50/70 text-sm"
                   />
@@ -458,7 +495,7 @@ function AssignFine({ session, onDone }: { session: SessionUser; onDone: () => v
                   <div className="w-full rounded-xl bg-slate-50 px-4 py-3 ring-1 ring-slate-100">
                     <div className="flex items-center justify-between text-xs">
                       <span className="font-semibold text-slate-500">{selectedList.length} offence(s) selected</span>
-                      <span className="text-base font-extrabold text-slate-800">{inr(total)}</span>
+                      <span className="text-base font-bold text-slate-800">{inr(total)}</span>
                     </div>
                   </div>
                 </div>
@@ -466,8 +503,8 @@ function AssignFine({ session, onDone }: { session: SessionUser; onDone: () => v
 
               <Button
                 onClick={() => setStep(3)}
-                disabled={selectedList.length === 0}
-                className="mt-4 w-full rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 font-bold disabled:opacity-50"
+                disabled={selectedList.length === 0 || !dueDate || dueDate < localISODate()}
+                className="mt-4 w-full rounded-xl bg-gradient-to-r from-brand-500 to-brand-600 font-bold disabled:opacity-50"
               >
                 Review Summary <ChevronRight className="ml-1 h-4 w-4" />
               </Button>
@@ -486,7 +523,7 @@ function AssignFine({ session, onDone }: { session: SessionUser; onDone: () => v
         <SectionCard className="fade-up">
           <SectionHeader
             title="Review Fine Summary"
-            icon={<BadgeIndianRupee className="h-4 w-4 text-sky-500" />}
+            icon={<BadgeIndianRupee className="h-4 w-4 text-brand-500" />}
             action={
               <Button variant="ghost" size="sm" className="h-8 rounded-lg text-xs font-bold text-slate-500" onClick={() => setStep(2)}>
                 <ChevronLeft className="h-3.5 w-3.5" /> Back
@@ -497,7 +534,7 @@ function AssignFine({ session, onDone }: { session: SessionUser; onDone: () => v
             <div className="flex items-center gap-3">
               <Avatar name={found.student.name} color={found.student.photoColor} size={44} />
               <div>
-                <div className="text-sm font-extrabold text-slate-800">{found.student.name}</div>
+                <div className="text-sm font-bold text-slate-800">{found.student.name}</div>
                 <div className="text-xs text-slate-500">
                   {found.student.rollNumber} · {found.student.programme} · {found.student.year}
                 </div>
@@ -513,7 +550,7 @@ function AssignFine({ session, onDone }: { session: SessionUser; onDone: () => v
               <div key={o.id} className="rounded-2xl border border-slate-200/80 p-3.5">
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-sm font-bold text-slate-800">{o.name}</span>
-                  <span className="text-sm font-extrabold text-slate-800">{inr(o.amount)}</span>
+                  <span className="text-sm font-bold text-slate-800">{inr(o.amount)}</span>
                 </div>
                 <div className="mt-0.5 text-[11px] text-slate-400">
                   {o.code} · {o.ruleRef}
@@ -525,14 +562,14 @@ function AssignFine({ session, onDone }: { session: SessionUser; onDone: () => v
             ))}
           </div>
 
-          <div className="mt-3 space-y-1.5 rounded-2xl bg-gradient-to-r from-sky-500 to-blue-600 p-4 text-white">
-            <div className="flex justify-between text-xs text-sky-100">
+          <div className="mt-3 space-y-1.5 rounded-2xl bg-gradient-to-r from-brand-500 to-brand-600 p-4 text-white">
+            <div className="flex justify-between text-xs text-brand-100">
               <span>Due date</span>
               <span className="font-bold">{fmtDate(dueDate)}</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-sm font-semibold">Total payable</span>
-              <span className="text-xl font-extrabold">{inr(total)}</span>
+              <span className="text-xl font-bold">{inr(total)}</span>
             </div>
           </div>
 
@@ -559,7 +596,7 @@ function AssignFine({ session, onDone }: { session: SessionUser; onDone: () => v
                     e.preventDefault();
                     submit();
                   }}
-                  className="rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 font-bold"
+                  className="rounded-xl bg-gradient-to-r from-brand-500 to-brand-600 font-bold"
                 >
                   {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Confirm & Submit"}
                 </AlertDialogAction>
@@ -570,7 +607,7 @@ function AssignFine({ session, onDone }: { session: SessionUser; onDone: () => v
           <Button
             onClick={() => setConfirmOpen(true)}
             disabled={submitting || selectedList.length === 0}
-            className="mt-4 h-12 w-full rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 text-sm font-extrabold shadow-md shadow-blue-500/25"
+            className="mt-4 h-12 w-full rounded-xl bg-gradient-to-r from-brand-500 to-brand-600 text-sm font-bold shadow-md shadow-brand-500/25"
           >
             {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : `Submit ${selectedList.length} Fine${selectedList.length > 1 ? "s" : ""} · ${inr(total)}`}
           </Button>
@@ -584,7 +621,7 @@ function VerifyStat({ label, value, warn }: { label: string; value: string; warn
   return (
     <div className="rounded-xl bg-white px-2.5 py-2 text-center ring-1 ring-slate-100">
       <p className="text-[9px] font-bold uppercase tracking-wide text-slate-400">{label}</p>
-      <p className={`truncate text-xs font-extrabold ${warn && value !== "0" ? "text-rose-600" : "text-slate-700"}`}>{value}</p>
+      <p className={`truncate text-xs font-bold ${warn && value !== "0" ? "text-rose-600" : "text-slate-700"}`}>{value}</p>
     </div>
   );
 }
@@ -644,7 +681,7 @@ function FineHistory({ session }: { session: SessionUser }) {
     <SectionCard>
       <SectionHeader
         title="Fine History"
-        icon={<History className="h-4 w-4 text-sky-500" />}
+        icon={<History className="h-4 w-4 text-brand-500" />}
         action={
           <Button variant="outline" size="sm" onClick={exportCsv} className="h-8 gap-1.5 rounded-lg text-xs font-bold text-slate-600">
             <FileDown className="h-3.5 w-3.5" /> Export CSV
@@ -677,7 +714,7 @@ function FineHistory({ session }: { session: SessionUser }) {
             variant={mineOnly ? "default" : "outline"}
             size="sm"
             onClick={() => setMineOnly(!mineOnly)}
-            className={`h-10 rounded-xl px-3.5 text-xs font-bold ${mineOnly ? "bg-gradient-to-r from-sky-500 to-blue-600" : "text-slate-600"}`}
+            className={`h-10 rounded-xl px-3.5 text-xs font-bold ${mineOnly ? "bg-gradient-to-r from-brand-500 to-brand-600" : "text-slate-600"}`}
           >
             Mine only
           </Button>

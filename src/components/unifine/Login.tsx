@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { KrmuLogo } from "./shared";
+import { AnimatePresence, motion } from "./motion";
 import type { Role, SessionUser, StudentT } from "./types";
 import {
   ArrowLeft,
@@ -17,7 +18,12 @@ import {
   ShieldCheck,
   UserRound,
   Info,
+  Eye,
+  EyeOff,
 } from "lucide-react";
+
+// Demo accounts are created by `npm run db:seed`. Never show/prefill passwords on a production deployment.
+const SHOW_DEMO = process.env.NODE_ENV !== "production";
 
 const DEMO: Record<Role, { email: string; password: string; hint: string }> = {
   ADMIN: { email: "admin@krmu.ac.in", password: "Admin@123", hint: "Dr. Meera Kapoor · Dean Student Affairs" },
@@ -38,7 +44,7 @@ const YEARS = ["1st Year", "2nd Year", "3rd Year", "4th Year"];
 type Mode = "signin" | "signup";
 
 const inputCls = "h-11 rounded-xl border-slate-200 bg-slate-50/60 text-sm";
-const selectCls = "h-11 w-full rounded-xl border border-slate-200 bg-slate-50/70 px-3 text-sm font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-sky-400";
+const selectCls = "h-11 w-full rounded-xl border border-slate-200 bg-slate-50/70 px-3 text-sm font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-400";
 
 export function Login({
   initialRole = "FACULTY",
@@ -53,8 +59,9 @@ export function Login({
 
   /* ---- sign in state ---- */
   const [role, setRole] = useState<Role>(initialRole);
-  const [email, setEmail] = useState(DEMO[initialRole].email);
-  const [password, setPassword] = useState(DEMO[initialRole].password);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPw, setShowPw] = useState(false);
 
   /* ---- sign up state ---- */
   const [signupRole, setSignupRole] = useState<"STUDENT" | "FACULTY">("STUDENT");
@@ -71,6 +78,7 @@ export function Login({
   const [loading, setLoading] = useState(false);
 
   const switchMode = (m: Mode) => {
+    if (m === mode) return;
     setMode(m);
     setError("");
     setLoading(false);
@@ -79,8 +87,6 @@ export function Login({
   const pickRole = (r: string) => {
     const rr = r as Role;
     setRole(rr);
-    setEmail(DEMO[rr].email);
-    setPassword(DEMO[rr].password);
     setError("");
   };
 
@@ -99,12 +105,12 @@ export function Login({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: email.trim(), password }),
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         setError(data.error || "Login failed.");
         return;
       }
-      onLogin(data.user, data.student ?? null);
+      onLogin({ ...data.user, token: data.token }, data.student ?? null);
     } catch {
       setError("Network error. Please try again.");
     } finally {
@@ -124,8 +130,8 @@ export function Login({
       setError("Please enter your full name.");
       return;
     }
-    if (!mail) {
-      setError("Please enter your university email.");
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(mail)) {
+      setError("Please enter a valid university email.");
       return;
     }
     if (suPassword.length < 6) {
@@ -158,12 +164,12 @@ export function Login({
             : { department: suSchool, designation: suDesignation.trim() }),
         }),
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         setError(data.error || "Registration failed.");
         return;
       }
-      onLogin(data.user, data.student ?? null);
+      onLogin({ ...data.user, token: data.token }, data.student ?? null);
     } catch {
       setError("Network error. Please try again.");
     } finally {
@@ -172,8 +178,12 @@ export function Login({
   };
 
   return (
-    <div className="flex min-h-screen flex-col bg-gradient-to-b from-sky-400 via-blue-500 to-blue-600">
-      <div className="px-5 pt-[max(1.25rem,env(safe-area-inset-top))]">
+    <div className="relative flex min-h-screen flex-col overflow-hidden bg-gradient-to-b from-brand-400 via-brand-500 to-brand-600">
+      <div className="pointer-events-none absolute inset-0">
+        <div className="float-slow absolute -right-24 -top-24 h-80 w-80 rounded-full bg-white/10" />
+        <div className="float-slower absolute -bottom-32 -left-24 h-96 w-96 rounded-full bg-white/[0.07]" />
+      </div>
+      <div className="relative px-5 pt-[max(1.25rem,env(safe-area-inset-top))]">
         <button
           onClick={onBack}
           className="flex h-10 w-10 items-center justify-center rounded-xl text-white transition hover:bg-white/15"
@@ -183,41 +193,60 @@ export function Login({
         </button>
       </div>
 
-      <div className="flex flex-1 items-start justify-center px-4 pb-10 pt-6 sm:items-center">
-        <div className="fade-up w-full max-w-md">
+      <div className="relative flex flex-1 items-start justify-center px-4 pb-10 pt-6 sm:items-center">
+        <motion.div
+          initial={{ opacity: 0, y: 24, scale: 0.98 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+          className="w-full max-w-md"
+        >
           <div className="mb-5 text-center text-white">
-            <div className="mb-3 flex justify-center">
-              <KrmuLogo size={64} />
-            </div>
-            <h1 className="text-2xl font-extrabold tracking-tight">
+            <motion.div
+              className="mb-3 flex justify-center"
+              initial={{ scale: 0.6, rotate: -12, opacity: 0 }}
+              animate={{ scale: 1, rotate: 0, opacity: 1 }}
+              transition={{ type: "spring", stiffness: 260, damping: 18, delay: 0.1 }}
+            >
+              <KrmuLogo size={68} />
+            </motion.div>
+            <h1 className="text-2xl font-bold tracking-tight">
               {mode === "signin" ? "Sign in to UniFine" : "Create your UniFine account"}
             </h1>
-            <p className="mt-1 text-sm text-sky-100">KR Mangalam University · Fine Management Portal</p>
+            <p className="mt-1 text-sm text-brand-100">KR Mangalam University · Fine Management Portal</p>
           </div>
 
-          <div className="rounded-3xl bg-white p-6 shadow-2xl shadow-blue-900/20">
-            {/* mode switch */}
+          <div className="overflow-hidden rounded-[28px] bg-white p-6 shadow-2xl shadow-brand-900/25">
+            {/* mode switch — sliding pill */}
             <div className="mb-5 grid grid-cols-2 gap-1 rounded-2xl bg-slate-100 p-1">
-              <button
-                type="button"
-                onClick={() => switchMode("signin")}
-                className={`h-9 rounded-xl text-xs font-bold transition-all ${
-                  mode === "signin" ? "bg-white text-sky-600 shadow-sm" : "text-slate-500 hover:text-slate-700"
-                }`}
-              >
-                Sign In
-              </button>
-              <button
-                type="button"
-                onClick={() => switchMode("signup")}
-                className={`h-9 rounded-xl text-xs font-bold transition-all ${
-                  mode === "signup" ? "bg-white text-sky-600 shadow-sm" : "text-slate-500 hover:text-slate-700"
-                }`}
-              >
-                Sign Up
-              </button>
+              {(["signin", "signup"] as const).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => switchMode(m)}
+                  className={`relative h-9 rounded-xl text-xs font-bold transition-colors ${
+                    mode === m ? "text-brand-600" : "text-slate-500 hover:text-slate-700"
+                  }`}
+                >
+                  {mode === m && (
+                    <motion.span
+                      layoutId="auth-mode-pill"
+                      transition={{ type: "spring", stiffness: 450, damping: 34 }}
+                      className="absolute inset-0 rounded-xl bg-white shadow-sm"
+                    />
+                  )}
+                  <span className="relative">{m === "signin" ? "Sign In" : "Sign Up"}</span>
+                </button>
+              ))}
             </div>
 
+            <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={mode}
+              initial={{ opacity: 0, x: mode === "signin" ? -16 : 16 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: mode === "signin" ? 16 : -16 }}
+              transition={{ duration: 0.22 }}
+            >
             {mode === "signin" ? (
               <>
                 <Tabs value={role} onValueChange={pickRole}>
@@ -228,10 +257,22 @@ export function Login({
                   </TabsList>
                 </Tabs>
 
-                <p className="mb-4 flex items-center gap-1.5 rounded-xl bg-sky-50 px-3 py-2 text-[11px] font-medium text-sky-700 ring-1 ring-sky-100">
-                  <ShieldCheck className="h-3.5 w-3.5 shrink-0" />
-                  Demo: {DEMO[role].email} / {DEMO[role].password} — {DEMO[role].hint}
-                </p>
+                {SHOW_DEMO && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEmail(DEMO[role].email);
+                      setPassword(DEMO[role].password);
+                      setError("");
+                    }}
+                    className="mb-4 flex w-full items-center gap-1.5 rounded-xl bg-brand-50 px-3 py-2 text-left text-[11px] font-medium text-brand-700 ring-1 ring-brand-100 transition hover:bg-brand-100"
+                  >
+                    <ShieldCheck className="h-3.5 w-3.5 shrink-0" />
+                    <span>
+                      Dev only — tap to fill demo {role.toLowerCase()} ({DEMO[role].email}). Requires <code>npm run db:seed</code>.
+                    </span>
+                  </button>
+                )}
 
                 <form onSubmit={submitSignIn} className="space-y-4">
                   <div className="space-y-1.5">
@@ -255,26 +296,40 @@ export function Login({
                       <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                       <Input
                         id="password"
-                        type="password"
+                        type={showPw ? "text" : "password"}
                         autoComplete="current-password"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         placeholder="Enter your password"
-                        className={inputCls + " pl-9"}
+                        className={inputCls + " pl-9 pr-10"}
                       />
+                      <button
+                        type="button"
+                        onClick={() => setShowPw((v) => !v)}
+                        aria-label={showPw ? "Hide password" : "Show password"}
+                        className="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+                      >
+                        {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
                     </div>
                   </div>
 
-                  {error && (
-                    <Alert variant="destructive" className="rounded-xl py-2.5 text-xs">
-                      <AlertDescription>{error}</AlertDescription>
-                    </Alert>
-                  )}
+                  <AnimatePresence>
+                    {error && (
+                      <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}>
+                        <motion.div animate={{ x: [0, -6, 6, -4, 4, 0] }} transition={{ duration: 0.4 }}>
+                          <Alert variant="destructive" className="rounded-xl py-2.5 text-xs">
+                            <AlertDescription>{error}</AlertDescription>
+                          </Alert>
+                        </motion.div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
 
                   <Button
                     type="submit"
                     disabled={loading}
-                    className="h-11 w-full rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 text-sm font-bold shadow-md shadow-blue-500/25 hover:from-sky-600 hover:to-blue-700"
+                    className="h-11 w-full rounded-xl bg-gradient-to-r from-brand-500 to-brand-600 text-sm font-bold shadow-md shadow-brand-500/25 hover:from-brand-600 hover:to-brand-700"
                   >
                     {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : `Sign in as ${role.charAt(0) + role.slice(1).toLowerCase()}`}
                   </Button>
@@ -289,7 +344,7 @@ export function Login({
                     onClick={() => { setSignupRole("STUDENT"); setError(""); }}
                     className={`flex h-11 items-center justify-center gap-2 rounded-xl border text-xs font-bold transition-all ${
                       signupRole === "STUDENT"
-                        ? "border-sky-300 bg-sky-50 text-sky-700 ring-2 ring-sky-200"
+                        ? "border-brand-300 bg-brand-50 text-brand-700 ring-2 ring-brand-200"
                         : "border-slate-200 bg-slate-50/60 text-slate-500 hover:border-slate-300"
                     }`}
                   >
@@ -300,7 +355,7 @@ export function Login({
                     onClick={() => { setSignupRole("FACULTY"); setError(""); }}
                     className={`flex h-11 items-center justify-center gap-2 rounded-xl border text-xs font-bold transition-all ${
                       signupRole === "FACULTY"
-                        ? "border-sky-300 bg-sky-50 text-sky-700 ring-2 ring-sky-200"
+                        ? "border-brand-300 bg-brand-50 text-brand-700 ring-2 ring-brand-200"
                         : "border-slate-200 bg-slate-50/60 text-slate-500 hover:border-slate-300"
                     }`}
                   >
@@ -364,7 +419,7 @@ export function Login({
                       <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                       <Input
                         id="su-password"
-                        type="password"
+                        type={showPw ? "text" : "password"}
                         value={suPassword}
                         onChange={(e) => setSuPassword(e.target.value)}
                         placeholder="Minimum 6 characters"
@@ -429,16 +484,22 @@ export function Login({
                     </div>
                   )}
 
-                  {error && (
-                    <Alert variant="destructive" className="rounded-xl py-2.5 text-xs">
-                      <AlertDescription>{error}</AlertDescription>
-                    </Alert>
-                  )}
+                  <AnimatePresence>
+                    {error && (
+                      <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}>
+                        <motion.div animate={{ x: [0, -6, 6, -4, 4, 0] }} transition={{ duration: 0.4 }}>
+                          <Alert variant="destructive" className="rounded-xl py-2.5 text-xs">
+                            <AlertDescription>{error}</AlertDescription>
+                          </Alert>
+                        </motion.div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
 
                   <Button
                     type="submit"
                     disabled={loading}
-                    className="h-11 w-full rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 text-sm font-bold shadow-md shadow-blue-500/25 hover:from-sky-600 hover:to-blue-700"
+                    className="h-11 w-full rounded-xl bg-gradient-to-r from-brand-500 to-brand-600 text-sm font-bold shadow-md shadow-brand-500/25 hover:from-brand-600 hover:to-brand-700"
                   >
                     {loading ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
@@ -455,30 +516,32 @@ export function Login({
                 </form>
               </>
             )}
+            </motion.div>
+            </AnimatePresence>
           </div>
 
-          <p className="mt-4 text-center text-[11px] text-sky-100/80">
+          <p className="mt-4 text-center text-[11px] text-brand-100/80">
             {mode === "signin" ? (
               <>
                 New student or faculty member?{" "}
-                <button type="button" onClick={() => switchMode("signup")} className="font-bold text-white underline underline-offset-2 hover:text-sky-100">
+                <button type="button" onClick={() => switchMode("signup")} className="font-bold text-white underline underline-offset-2 hover:text-brand-100">
                   Create an account
                 </button>
               </>
             ) : (
               <>
                 Already registered?{" "}
-                <button type="button" onClick={() => switchMode("signin")} className="font-bold text-white underline underline-offset-2 hover:text-sky-100">
+                <button type="button" onClick={() => switchMode("signin")} className="font-bold text-white underline underline-offset-2 hover:text-brand-100">
                   Sign in
                 </button>
               </>
             )}
           </p>
 
-          <p className="mt-2 text-center text-[11px] text-sky-100/60">
+          <p className="mt-2 text-center text-[11px] text-brand-100/60">
             Access is role-restricted. Students get read-only views of their own records.
           </p>
-        </div>
+        </motion.div>
       </div>
     </div>
   );

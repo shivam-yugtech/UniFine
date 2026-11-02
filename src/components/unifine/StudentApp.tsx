@@ -14,10 +14,12 @@ import {
   FineDetailDialog,
   EmptyState,
   CardsSkeleton,
+  ErrorState,
 } from "./shared";
+import { CountUp, Stagger, StaggerItem } from "./motion";
 import { RuleBookView, NotificationsView } from "./common-views";
 import { Avatar } from "./Avatar";
-import { api, inr, fmtDate, daysLeft } from "./utils";
+import { api, inr, daysLeft } from "./utils";
 import type { FineT, SessionUser, StudentT } from "./types";
 import {
   BadgeAlert,
@@ -46,18 +48,37 @@ export function StudentApp({
   onView: (v: string) => void;
 }) {
   const [fines, setFines] = useState<FineT[] | null>(null);
+  const [loadError, setLoadError] = useState("");
   const [tab, setTab] = useState("ALL");
   const [selected, setSelected] = useState<FineT | null>(null);
-  const [notifs, setNotifs] = useState<{ count: number }>({ count: 0 });
+  const [unread, setUnread] = useState(0);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
+    let alive = true;
     api<{ fines: FineT[] }>(session, "/api/fines")
-      .then((d) => setFines(d.fines))
-      .catch(() => setFines([]));
-    api<{ notifications: { read: boolean }[] }>(session, "/api/notifications")
-      .then((d) => setNotifs({ count: d.notifications.filter((n) => !n.read).length }))
+      .then((d) => {
+        if (!alive) return;
+        setFines(d.fines);
+        setLoadError("");
+      })
+      .catch((e) => {
+        if (!alive) return;
+        setFines([]);
+        setLoadError(e instanceof Error ? e.message : "Could not load your fines.");
+      });
+    api<{ unread: number }>(session, "/api/notifications")
+      .then((d) => alive && setUnread(d.unread ?? 0))
       .catch(() => {});
-  }, [session, view]);
+    return () => {
+      alive = false;
+    };
+  }, [session, view, reloadKey]);
+
+  const retry = () => {
+    setFines(null);
+    setReloadKey((k) => k + 1);
+  };
 
   const stats = useMemo(() => {
     const all = fines ?? [];
@@ -90,14 +111,16 @@ export function StudentApp({
         <>
           {/* Balance hero */}
           <SectionCard className="!p-0 overflow-hidden">
-            <div className="relative overflow-hidden bg-gradient-to-br from-sky-500 via-blue-500 to-blue-600 p-5 text-white">
+            <div className="relative overflow-hidden bg-gradient-to-br from-brand-500 via-brand-500 to-brand-600 p-5 text-white">
               <div className="absolute -right-8 -top-10 h-36 w-36 rounded-full bg-white/10" />
               <div className="absolute -bottom-12 right-16 h-28 w-28 rounded-full bg-white/10" />
               <div className="relative flex items-start justify-between">
                 <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-wider text-sky-100">Outstanding balance</p>
-                  <p className="mt-1 text-4xl font-extrabold tracking-tight">{inr(stats.outstanding)}</p>
-                  <p className="mt-1.5 text-xs text-sky-100">
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-brand-100">Outstanding balance</p>
+                  <p className="mt-1 text-4xl font-bold tracking-tight">
+                    <CountUp value={stats.outstanding} format={inr} />
+                  </p>
+                  <p className="mt-1.5 text-xs text-brand-100">
                     {stats.active} pending · {stats.overdue} overdue · {stats.paidCount} cleared
                   </p>
                 </div>
@@ -110,45 +133,65 @@ export function StudentApp({
                 <MiniStat label="Total paid" value={inr(stats.paidAmount)} />
                 <MiniStat
                   label="Next due"
-                  value={nearestDue ? fmtDate(nearestDue.dueDate) : "—"}
+                  value={nearestDue ? new Date(nearestDue.dueDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short" }) : "—"}
                   warn={nearestDue ? daysLeft(nearestDue.dueDate) < 0 : false}
                 />
               </div>
             </div>
           </SectionCard>
 
-          {/* Colorful quick tiles */}
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <ColorTile label="My Fines" icon={<FileWarning className="h-11 w-11" />} tone="rose" badge={stats.active + stats.overdue} onClick={() => onView("fines")} />
-            <ColorTile label="Payments" icon={<Wallet className="h-11 w-11" />} tone="emerald" onClick={() => onView("fines")} />
-            <ColorTile label="Rule Book" icon={<BookOpenText className="h-11 w-11" />} tone="violet" onClick={() => onView("rulebook")} />
-            <ColorTile label="Alerts" icon={<Bell className="h-11 w-11" />} tone="amber" badge={notifs.count} onClick={() => onView("notifications")} />
-          </div>
+          {/* Colorful quick tiles — same layout as the KRMU app (2 big + 3 small on phones) */}
+          <Stagger className="grid grid-cols-6 gap-3 lg:grid-cols-4">
+            <StaggerItem className="col-span-3 lg:col-span-1">
+              <ColorTile label="My Fines" icon={<FileWarning />} tone="rose" badge={stats.active + stats.overdue} onClick={() => onView("fines")} />
+            </StaggerItem>
+            <StaggerItem className="col-span-3 lg:col-span-1">
+              <ColorTile label="Rule Book" icon={<BookOpenText />} tone="violet" onClick={() => onView("rulebook")} />
+            </StaggerItem>
+            <StaggerItem className="col-span-2 lg:col-span-1">
+              <ColorTile label="Payments" icon={<Wallet />} tone="emerald" onClick={() => onView("fines")} />
+            </StaggerItem>
+            <StaggerItem className="col-span-2 lg:col-span-1">
+              <ColorTile label="Profile" icon={<UserRound />} tone="sky" onClick={() => onView("profile")} />
+            </StaggerItem>
+            <StaggerItem className="col-span-2 lg:hidden">
+              <ColorTile label="Alerts" icon={<Bell />} tone="amber" badge={unread} onClick={() => onView("notifications")} />
+            </StaggerItem>
+          </Stagger>
 
           {/* Module grid */}
           <SectionCard>
-            <SectionHeader title="Quick Access" />
-            <div className="grid grid-cols-4 gap-2.5 sm:grid-cols-4">
-              <ModuleTile label="My Fines" icon={<FileWarning className="h-5 w-5" />} onClick={() => onView("fines")} />
-              <ModuleTile label="Rule Book" icon={<ScrollText className="h-5 w-5" />} onClick={() => onView("rulebook")} />
-              <ModuleTile label="Alerts" icon={<Bell className="h-5 w-5" />} onClick={() => onView("notifications")} />
-              <ModuleTile label="Profile" icon={<UserRound className="h-5 w-5" />} onClick={() => onView("profile")} />
-            </div>
+            <Stagger className="grid grid-cols-4 gap-2.5">
+              <StaggerItem>
+                <ModuleTile label="My Fines" icon={<FileWarning />} onClick={() => onView("fines")} />
+              </StaggerItem>
+              <StaggerItem>
+                <ModuleTile label="Rule Book" icon={<ScrollText />} onClick={() => onView("rulebook")} />
+              </StaggerItem>
+              <StaggerItem>
+                <ModuleTile label="Alerts" icon={<Bell />} onClick={() => onView("notifications")} />
+              </StaggerItem>
+              <StaggerItem>
+                <ModuleTile label="Profile" icon={<UserRound />} onClick={() => onView("profile")} />
+              </StaggerItem>
+            </Stagger>
           </SectionCard>
 
           {/* Recent fines */}
           <SectionCard>
             <SectionHeader
               title="Recent Fines"
-              icon={<BadgeAlert className="h-4 w-4 text-sky-500" />}
+              icon={<BadgeAlert className="h-4 w-4 text-brand-500" />}
               action={
-                <Button variant="ghost" size="sm" className="h-8 rounded-lg text-xs font-bold text-sky-600 hover:bg-sky-50" onClick={() => onView("fines")}>
+                <Button variant="ghost" size="sm" className="h-8 rounded-lg text-xs font-bold text-brand-600 hover:bg-brand-50" onClick={() => onView("fines")}>
                   View all
                 </Button>
               }
             />
             {fines === null ? (
               <CardsSkeleton n={3} />
+            ) : loadError ? (
+              <ErrorState message={loadError} onRetry={retry} />
             ) : fines.length === 0 ? (
               <EmptyState title="No fines on record" hint="You're all clear. Keep following the university rule book!" icon={<BadgeCheck className="h-6 w-6" />} />
             ) : (
@@ -170,7 +213,9 @@ export function StudentApp({
                 <p className={`text-sm font-bold ${daysLeft(nearestDue.dueDate) < 0 ? "text-rose-700" : "text-amber-700"}`}>
                   {daysLeft(nearestDue.dueDate) < 0
                     ? `Overdue: ${nearestDue.offence.name}`
-                    : `Due in ${daysLeft(nearestDue.dueDate)} day(s)`}
+                    : daysLeft(nearestDue.dueDate) === 0
+                      ? "Due today"
+                      : `Due in ${daysLeft(nearestDue.dueDate)} day${daysLeft(nearestDue.dueDate) === 1 ? "" : "s"}`}
                 </p>
                 <p className="text-xs text-slate-500">
                   {nearestDue.offence.name} · {inr(nearestDue.amountSnapshot)} · clear at accounts counter
@@ -183,7 +228,7 @@ export function StudentApp({
 
       {view === "fines" && (
         <SectionCard>
-          <SectionHeader title="My Fine Records" icon={<FileWarning className="h-4 w-4 text-sky-500" />} />
+          <SectionHeader title="My Fine Records" icon={<FileWarning className="h-4 w-4 text-brand-500" />} />
           <Tabs value={tab} onValueChange={setTab} className="mb-4">
             <TabsList className="grid w-full grid-cols-4 rounded-2xl bg-slate-100 p-1">
               <TabsTrigger value="ALL" className="rounded-xl text-xs font-bold">All</TabsTrigger>
@@ -194,6 +239,8 @@ export function StudentApp({
           </Tabs>
           {fines === null ? (
             <CardsSkeleton n={4} />
+          ) : loadError ? (
+            <ErrorState message={loadError} onRetry={retry} />
           ) : filtered.length === 0 ? (
             <EmptyState title="Nothing here" hint="No fines under this filter." icon={<ScanLine className="h-6 w-6" />} />
           ) : (
@@ -217,9 +264,15 @@ export function StudentApp({
         <SectionCard>
           <div className="flex flex-col items-center py-2 text-center">
             <Avatar name={student?.name ?? session.name} color={student?.photoColor ?? "#3b82f6"} size={84} ring />
-            <h2 className="mt-3 text-lg font-extrabold text-slate-800">{student?.name ?? session.name}</h2>
+            <h2 className="mt-3 text-lg font-bold text-slate-800">{student?.name ?? session.name}</h2>
             <p className="text-xs text-slate-500">{student?.programme ?? session.designation}</p>
-            <Badge className="mt-2 rounded-full bg-emerald-100 px-3 py-1 text-[10px] font-bold text-emerald-700 hover:bg-emerald-100">
+            <Badge
+              className={`mt-2 rounded-full px-3 py-1 text-[10px] font-bold ${
+                (student?.status ?? "ACTIVE") === "ACTIVE"
+                  ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-100"
+                  : "bg-amber-100 text-amber-700 hover:bg-amber-100"
+              }`}
+            >
               {student?.status ?? "ACTIVE"}
             </Badge>
           </div>
@@ -230,7 +283,7 @@ export function StudentApp({
             <InfoRow label="Year" value={student?.year ?? "—"} />
             <InfoRow label="Portal Role" value="Student (read-only)" />
           </div>
-          <p className="mt-4 rounded-xl bg-sky-50 px-3 py-2.5 text-[11px] leading-relaxed text-sky-700 ring-1 ring-sky-100">
+          <p className="mt-4 rounded-xl bg-brand-50 px-3 py-2.5 text-[11px] leading-relaxed text-brand-700 ring-1 ring-brand-100">
             Students can view their own fine records and the rule book. Editing fine records is not permitted.
           </p>
         </SectionCard>
@@ -243,9 +296,9 @@ export function StudentApp({
 
 function MiniStat({ label, value, warn }: { label: string; value: string; warn?: boolean }) {
   return (
-    <div className="rounded-2xl bg-white/12 px-3 py-2.5 backdrop-blur">
-      <p className="text-[10px] font-semibold text-sky-100">{label}</p>
-      <p className={`mt-0.5 truncate text-sm font-extrabold ${warn ? "text-amber-300" : "text-white"}`}>{value}</p>
+    <div className="rounded-2xl bg-white/15 px-3 py-2.5 backdrop-blur">
+      <p className="text-[10px] font-semibold text-brand-100">{label}</p>
+      <p className={`mt-0.5 truncate text-sm font-bold ${warn ? "text-amber-300" : "text-white"}`}>{value}</p>
     </div>
   );
 }

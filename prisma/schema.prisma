@@ -106,7 +106,20 @@ model Notification {
   type      String   @default("GENERAL") // FINE_ISSUED | PAYMENT | STATUS | GENERAL
   title     String
   message   String
-  read      Boolean  @default(false)
+  read      Boolean  @default(false) // legacy global flag — per-user state lives in NotificationRead
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  reads     NotificationRead[]
+}
+
+// Per-user read receipts — a broadcast read by one user must stay unread for everyone else
+model NotificationRead {
+  id             String       @id @default(cuid())
+  notificationId String
+  userId         String
+  createdAt      DateTime     @default(now())
+  notification   Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+
+  @@unique([notificationId, userId])
+  @@index([userId])
 }

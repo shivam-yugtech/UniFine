@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { forbidden, getAuth, unauthorized } from "@/lib/auth";
 
 export async function GET(req: NextRequest) {
   try {
@@ -17,12 +18,13 @@ export async function GET(req: NextRequest) {
 // FR-05 — Admin manages the offence catalogue
 export async function POST(req: NextRequest) {
   try {
-    if (req.headers.get("x-user-role") !== "ADMIN") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-    const body = await req.json();
+    const auth = await getAuth(req);
+    if (!auth) return unauthorized();
+    if (auth.role !== "ADMIN") return forbidden();
+    const body = await req.json().catch(() => null);
+    if (!body) return NextResponse.json({ error: "Invalid request body." }, { status: 400 });
     const { code, name, description, ruleRef, category, amount, active } = body;
-    if (!code || !name || !ruleRef || !category || amount === undefined || amount === null) {
+    if (!String(code ?? "").trim() || !String(name ?? "").trim() || !String(ruleRef ?? "").trim() || !String(category ?? "").trim() || amount === undefined || amount === null) {
       return NextResponse.json({ error: "Code, name, rule reference, category and amount are required." }, { status: 400 });
     }
     const amt = Number(amount);
@@ -41,7 +43,7 @@ export async function POST(req: NextRequest) {
         ruleRef: String(ruleRef).trim(),
         category: String(category).trim(),
         amount: amt,
-        active: active ?? true,
+        active: active === undefined ? true : !!active,
       },
     });
     return NextResponse.json({ offence }, { status: 201 });

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { Student } from "@prisma/client";
 import { db } from "@/lib/db";
+import { issueToken } from "@/lib/auth";
 import { verifyPassword } from "@/lib/password";
 
 export async function POST(req: NextRequest) {
@@ -24,7 +25,7 @@ export async function POST(req: NextRequest) {
       student = await db.student.findUnique({ where: { rollNumber: user.rollNumber } });
     }
 
-    // Demo token — production issues a signed JWT per TRD §10
+    // HMAC-signed session token — every API call is authorised from this, never from client headers
     return NextResponse.json({
       user: {
         id: user.id,
@@ -36,7 +37,7 @@ export async function POST(req: NextRequest) {
         designation: user.designation,
       },
       student,
-      token: `demo.${Buffer.from(user.id).toString("base64url")}`,
+      token: issueToken(user),
     });
   } catch {
     return NextResponse.json({ error: "Login failed. Please try again." }, { status: 500 });

@@ -1,7 +1,8 @@
-import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import type { Metadata, Viewport } from "next";
+import { Geist, Geist_Mono, Lexend } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
+import { MotionProvider } from "@/components/unifine/motion";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -13,6 +14,13 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+// Rounded geometric sans — closest match to the iCloudEMS / KRMU student app typography
+const lexend = Lexend({
+  variable: "--font-lexend",
+  subsets: ["latin"],
+  display: "swap",
+});
+
 export const metadata: Metadata = {
   title: "UniFine · KR Mangalam University — Fine Management Portal",
   description:
@@ -20,7 +28,7 @@ export const metadata: Metadata = {
   keywords: ["UniFine", "KRMU", "KR Mangalam University", "fine management", "university portal"],
   authors: [{ name: "KR Mangalam University" }],
   icons: {
-    icon: "https://z-cdn.chatglm.cn/z-ai/static/logo.svg",
+    icon: "/logo.svg",
   },
   openGraph: {
     title: "UniFine · KR Mangalam University",
@@ -28,6 +36,13 @@ export const metadata: Metadata = {
     siteName: "UniFine",
     type: "website",
   },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover", // lets env(safe-area-inset-*) work on notched phones
+  themeColor: "#4a9ee8",
 };
 
 export default function RootLayout({
@@ -38,9 +53,9 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
+        className={`${lexend.variable} ${geistSans.variable} ${geistMono.variable} bg-surface font-sans text-foreground antialiased`}
       >
-        {children}
+        <MotionProvider>{children}</MotionProvider>
         <Toaster />
       </body>
     </html>
