@@ -12,7 +12,8 @@ import {
 } from "@/components/ui/dialog";
 import { StatusBadge } from "./StatusBadge";
 import { Avatar } from "./Avatar";
-import { api, inr, fmtDate, fmtDateTime, STATUS_TONE } from "./utils";
+import { motion, CountUp } from "./motion";
+import { api, inr, fmtDate, fmtDateTime } from "./utils";
 import type { FineT, AuditT, SessionUser } from "./types";
 import {
   CalendarDays,
@@ -29,17 +30,21 @@ import {
 export function KrmuLogo({ size = 44 }: { size?: number }) {
   return (
     <div
-      className="flex items-center justify-center rounded-full bg-white shadow-md shrink-0"
+      className="flex shrink-0 items-center justify-center rounded-full bg-white shadow-md ring-2 ring-white/60"
       style={{ width: size, height: size }}
+      aria-label="KR Mangalam University"
+      role="img"
     >
       <div className="text-center leading-none">
         <div
-          className="font-extrabold tracking-tight bg-gradient-to-br from-sky-500 to-blue-700 bg-clip-text text-transparent"
+          className="bg-gradient-to-br from-brand-400 to-brand-700 bg-clip-text font-bold tracking-tight text-transparent"
           style={{ fontSize: size * 0.3 }}
         >
           KRMU
         </div>
-        <div className="text-[7px] font-semibold text-slate-400 tracking-widest mt-0.5">UNIV</div>
+        <div className="mt-0.5 font-semibold tracking-widest text-slate-400" style={{ fontSize: Math.max(6, size * 0.15) }}>
+          UNIV
+        </div>
       </div>
     </div>
   );
@@ -54,7 +59,7 @@ export function SectionCard({
   className?: string;
 }) {
   return (
-    <div className={`rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-100 ${className}`}>
+    <div className={`rounded-[26px] bg-white p-5 shadow-[0_2px_12px_-4px_rgba(15,23,42,0.06)] ring-1 ring-slate-100 ${className}`}>
       {children}
     </div>
   );
@@ -71,7 +76,7 @@ export function SectionHeader({
 }) {
   return (
     <div className="mb-4 flex items-center justify-between gap-3">
-      <h3 className="flex items-center gap-2 text-base font-bold text-slate-800">
+      <h3 className="flex items-center gap-2 text-base font-semibold text-slate-800">
         {icon}
         {title}
       </h3>
@@ -82,7 +87,7 @@ export function SectionHeader({
 
 /* ---------------- Stat card (grid 2x2) ---------------- */
 const STAT_TONES = {
-  blue: "from-sky-500 to-blue-600",
+  blue: "from-brand-400 to-brand-600",
   emerald: "from-emerald-500 to-teal-600",
   amber: "from-amber-500 to-orange-500",
   rose: "from-rose-500 to-pink-600",
@@ -92,42 +97,58 @@ const STAT_TONES = {
 export function StatCard({
   label,
   value,
+  money = false,
+  suffix = "",
   sub,
   icon,
   tone = "blue",
 }: {
   label: string;
+  /** numbers animate (count-up); use `money` to format as ₹ */
   value: string | number;
+  money?: boolean;
+  suffix?: string;
   sub?: string;
   icon: React.ReactNode;
   tone?: keyof typeof STAT_TONES;
 }) {
   return (
-    <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-100">
+    <motion.div
+      whileHover={{ y: -3 }}
+      transition={{ type: "spring", stiffness: 400, damping: 25 }}
+      className="rounded-[22px] bg-white p-4 shadow-sm ring-1 ring-slate-100 transition-shadow hover:shadow-md"
+    >
       <div className="flex items-center justify-between">
         <span className="text-xs font-medium text-slate-500">{label}</span>
         <span
-          className={`flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br text-white ${STAT_TONES[tone]}`}
+          className={`flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br text-white shadow-sm ${STAT_TONES[tone]}`}
         >
           {icon}
         </span>
       </div>
-      <div className="mt-2 text-2xl font-extrabold tracking-tight text-slate-800">{value}</div>
-      {sub && <div className="mt-0.5 text-xs text-slate-400">{sub}</div>}
-    </div>
+      <div className="mt-2 truncate text-2xl font-bold tracking-tight text-slate-800">
+        {typeof value === "number" ? (
+          <CountUp value={value} format={(n) => (money ? inr(n) : Math.round(n).toLocaleString("en-IN")) + suffix} />
+        ) : (
+          value
+        )}
+      </div>
+      {sub && <div className="mt-0.5 truncate text-xs text-slate-400">{sub}</div>}
+    </motion.div>
   );
 }
 
 /* ---------------- Big colorful tile (theme image style) ---------------- */
 export type TileTone = "rose" | "violet" | "emerald" | "sky" | "amber" | "orange";
 
-const TILE_STYLES: Record<TileTone, { bg: string; circle: string; icon: string; dark: string }> = {
-  rose: { bg: "from-rose-100 to-rose-50", circle: "bg-rose-200/60", icon: "text-rose-500", dark: "text-rose-950" },
-  violet: { bg: "from-violet-100 to-violet-50", circle: "bg-violet-200/60", icon: "text-violet-500", dark: "text-violet-950" },
-  emerald: { bg: "from-emerald-100 to-emerald-50", circle: "bg-emerald-200/60", icon: "text-emerald-500", dark: "text-emerald-950" },
-  sky: { bg: "from-sky-100 to-sky-50", circle: "bg-sky-200/60", icon: "text-sky-500", dark: "text-sky-950" },
-  amber: { bg: "from-amber-100 to-amber-50", circle: "bg-amber-200/60", icon: "text-amber-500", dark: "text-amber-950" },
-  orange: { bg: "from-orange-100 to-orange-50", circle: "bg-orange-200/60", icon: "text-orange-500", dark: "text-orange-950" },
+// Pastel tiles with a big soft circle in the corner — the iCloudEMS "Attendance / Timetable / Fees" cards
+const TILE_STYLES: Record<TileTone, { bg: string; circle: string; icon: string }> = {
+  rose: { bg: "bg-[#fde4e6]", circle: "bg-[#f9b4bb]", icon: "text-rose-600" },
+  violet: { bg: "bg-[#e6e4fd]", circle: "bg-[#b8b3fb]", icon: "text-indigo-600" },
+  emerald: { bg: "bg-[#d9f2ea]", circle: "bg-[#a3dcc8]", icon: "text-emerald-700" },
+  sky: { bg: "bg-[#dcefff]", circle: "bg-[#9fd2fb]", icon: "text-brand-700" },
+  amber: { bg: "bg-[#fff1d9]", circle: "bg-[#fdd38c]", icon: "text-amber-700" },
+  orange: { bg: "bg-[#ffe6d6]", circle: "bg-[#fcbc94]", icon: "text-orange-600" },
 };
 
 export function ColorTile({
@@ -147,26 +168,33 @@ export function ColorTile({
 }) {
   const s = TILE_STYLES[tone];
   return (
-    <button
+    <motion.button
       onClick={onClick}
-      className={`group relative flex flex-col justify-between overflow-hidden rounded-3xl bg-gradient-to-br p-4 text-left shadow-sm ring-1 ring-black/[0.03] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md active:scale-[0.98] ${s.bg} min-h-[78px] sm:min-h-[96px]`}
+      whileHover={{ y: -4 }}
+      whileTap={{ scale: 0.96 }}
+      transition={{ type: "spring", stiffness: 420, damping: 24 }}
+      className={`group relative flex min-h-[104px] w-full flex-col overflow-hidden rounded-[26px] p-4 text-left shadow-sm ring-1 ring-black/[0.03] transition-shadow hover:shadow-lg sm:min-h-[124px] ${s.bg}`}
     >
-      <div className={`absolute -right-7 -bottom-10 h-28 w-28 rounded-full ${s.circle}`} />
-      <div className={`absolute right-1.5 bottom-1.5 origin-bottom-right scale-[0.68] opacity-90 transition-transform duration-200 group-hover:scale-[0.76] sm:right-2 sm:bottom-2 sm:scale-90 sm:group-hover:scale-100 lg:scale-100 lg:group-hover:scale-110 ${s.icon}`}>
+      <span
+        className={`absolute -bottom-12 -right-10 h-32 w-32 rounded-full transition-transform duration-500 ease-out group-hover:scale-110 sm:h-36 sm:w-36 ${s.circle}`}
+      />
+      <span
+        className={`absolute bottom-3 right-3 transition-transform duration-300 ease-out group-hover:-rotate-6 group-hover:scale-110 [&_svg]:h-10 [&_svg]:w-10 sm:[&_svg]:h-12 sm:[&_svg]:w-12 ${s.icon}`}
+      >
         {icon}
-      </div>
+      </span>
       {badge !== undefined && badge > 0 && (
-        <span className="absolute top-3 right-3 flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-500 px-1.5 text-[10px] font-bold text-white shadow">
-          {badge}
+        <span className="absolute right-3 top-3 flex h-6 min-w-6 items-center justify-center rounded-full bg-rose-500 px-1.5 text-[11px] font-bold text-white shadow ring-2 ring-white">
+          {badge > 99 ? "99+" : badge}
         </span>
       )}
-      <div className={`max-w-[70%] text-[15px] font-bold leading-tight ${s.dark}`}>{label}</div>
-      {value && <div className={`mt-1 text-lg font-extrabold ${s.dark}`}>{value}</div>}
-    </button>
+      <span className="relative max-w-[78%] text-[17px] font-medium leading-tight text-slate-900 sm:text-xl">{label}</span>
+      {value && <span className="relative mt-1 text-base font-semibold text-slate-800">{value}</span>}
+    </motion.button>
   );
 }
 
-/* ---------------- White module tile (grid) ---------------- */
+/* ---------------- White module tile (grid) — blue icon on white, like "Assignment / LMS" ---------------- */
 export function ModuleTile({
   label,
   icon,
@@ -177,15 +205,18 @@ export function ModuleTile({
   onClick?: () => void;
 }) {
   return (
-    <button
+    <motion.button
       onClick={onClick}
-      className="flex flex-col items-center gap-2 rounded-2xl border border-slate-200/80 bg-white px-2 py-3.5 transition-all duration-200 hover:-translate-y-0.5 hover:border-sky-200 hover:shadow-sm active:scale-95"
+      whileHover={{ y: -3 }}
+      whileTap={{ scale: 0.93 }}
+      transition={{ type: "spring", stiffness: 420, damping: 24 }}
+      className="group flex flex-col items-center gap-2 rounded-[20px] border border-brand-100/80 bg-white px-1.5 py-3.5 transition-colors hover:border-brand-200 hover:bg-brand-50/40"
     >
-      <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500 to-blue-600 text-white shadow-sm">
+      <span className="flex h-11 w-11 items-center justify-center text-brand-500 transition-transform duration-300 group-hover:scale-110 [&_svg]:h-8 [&_svg]:w-8">
         {icon}
       </span>
-      <span className="text-[11px] font-semibold leading-tight text-slate-600">{label}</span>
-    </button>
+      <span className="text-center text-[12px] font-normal leading-tight text-slate-700">{label}</span>
+    </motion.button>
   );
 }
 
@@ -203,10 +234,21 @@ export function FineCard({
 }) {
   const overdueish = fine.status === "OVERDUE";
   return (
-    <div
+    <motion.div
+      layout="position"
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
       onClick={onClick}
-      className={`rounded-2xl border bg-white p-4 transition-all ${onClick ? "cursor-pointer hover:border-sky-200 hover:shadow-sm" : ""} ${
-        overdueish ? "border-rose-200" : "border-slate-200/80"
+      onKeyDown={(e) => {
+        if (onClick && (e.key === "Enter" || e.key === " ") && e.target === e.currentTarget) {
+          e.preventDefault();
+          onClick();
+        }
+      }}
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      className={`rounded-[20px] border bg-white p-4 transition-all duration-200 ${onClick ? "cursor-pointer hover:-translate-y-0.5 hover:border-brand-200 hover:shadow-md" : ""} ${
+        overdueish ? "border-rose-200 bg-rose-50/30" : "border-slate-200/80"
       }`}
     >
       <div className="flex items-start gap-3">
@@ -214,7 +256,7 @@ export function FineCard({
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
-              <div className="truncate text-sm font-bold text-slate-800">{fine.offence.name}</div>
+              <div className="truncate text-sm font-semibold text-slate-800">{fine.offence.name}</div>
               <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-slate-400">
                 <span>{fine.offence.code}</span>
                 <span>·</span>
@@ -230,7 +272,7 @@ export function FineCard({
               </div>
             </div>
             <div className="shrink-0 text-right">
-              <div className={`text-sm font-extrabold ${overdueish ? "text-rose-600" : "text-slate-800"}`}>
+              <div className={`text-sm font-bold ${overdueish ? "text-rose-600" : "text-slate-800"}`}>
                 {inr(fine.amountSnapshot)}
               </div>
             </div>
@@ -260,7 +302,7 @@ export function FineCard({
           </div>
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }
 
@@ -302,7 +344,7 @@ export function FineDetailDialog({
       <DialogContent className="max-h-[85vh] overflow-y-auto rounded-3xl sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-left text-base">
-            <FileWarning className="h-4 w-4 text-sky-500" /> {fine.offence.name}
+            <FileWarning className="h-4 w-4 text-brand-500" /> {fine.offence.name}
           </DialogTitle>
           <DialogDescription className="text-left">
             {fine.offence.code} · {fine.offence.ruleRef} · {fine.offence.category}
@@ -319,7 +361,7 @@ export function FineDetailDialog({
               </div>
             </div>
             <div className="ml-auto text-right">
-              <div className="text-xl font-extrabold text-slate-800">{inr(fine.amountSnapshot)}</div>
+              <div className="text-xl font-bold text-slate-800">{inr(fine.amountSnapshot)}</div>
               <StatusBadge status={fine.status} />
             </div>
           </div>
@@ -352,22 +394,28 @@ export function FineDetailDialog({
           </h4>
           {audits === null ? (
             <div className="space-y-2">
-              <Skeleton className="h-10 w-full rounded-xl" />
-              <Skeleton className="h-10 w-full rounded-xl" />
+              <Skeleton className="shimmer h-10 w-full rounded-xl" />
+              <Skeleton className="shimmer h-10 w-full rounded-xl" />
             </div>
           ) : audits.length === 0 ? (
             <p className="text-xs text-slate-400">No audit entries.</p>
           ) : (
             <ol className="relative space-y-3 border-l-2 border-slate-100 pl-4">
-              {audits.map((a) => (
-                <li key={a.id} className="relative">
-                  <span className="absolute -left-[22px] top-1.5 h-2.5 w-2.5 rounded-full bg-gradient-to-br from-sky-400 to-blue-600 ring-2 ring-white" />
+              {audits.map((a, i) => (
+                <motion.li
+                  key={a.id}
+                  className="relative"
+                  initial={{ opacity: 0, x: -8 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: i * 0.05 }}
+                >
+                  <span className="absolute -left-[22px] top-1.5 h-2.5 w-2.5 rounded-full bg-brand-500 ring-2 ring-white" />
                   <div className="text-xs font-bold text-slate-700">
                     {a.action.replaceAll("_", " ")} <span className="font-normal text-slate-400">· {a.actorName}</span>
                   </div>
                   <div className="text-[11px] text-slate-400">{fmtDateTime(a.createdAt)}</div>
                   {a.note && <div className="mt-0.5 text-xs text-slate-500">{a.note}</div>}
-                </li>
+                </motion.li>
               ))}
             </ol>
           )}
@@ -379,15 +427,30 @@ export function FineDetailDialog({
 }
 
 /* ---------------- Empty & loading states ---------------- */
-export function EmptyState({ title, hint, icon }: { title: string; hint?: string; icon?: React.ReactNode }) {
+export function EmptyState({
+  title,
+  hint,
+  icon,
+  action,
+}: {
+  title: string;
+  hint?: string;
+  icon?: React.ReactNode;
+  action?: React.ReactNode;
+}) {
   return (
-    <div className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-slate-200 bg-slate-50/50 py-10 text-center">
-      <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-slate-300 shadow-sm">
+    <motion.div
+      initial={{ opacity: 0, scale: 0.97 }}
+      animate={{ opacity: 1, scale: 1 }}
+      className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-slate-200 bg-slate-50/50 px-4 py-10 text-center"
+    >
+      <span className="float-slow flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-brand-300 shadow-sm">
         {icon ?? <Inbox className="h-6 w-6" />}
       </span>
       <div className="text-sm font-semibold text-slate-500">{title}</div>
       {hint && <div className="max-w-xs text-xs text-slate-400">{hint}</div>}
-    </div>
+      {action}
+    </motion.div>
   );
 }
 
@@ -395,7 +458,7 @@ export function CardsSkeleton({ n = 3 }: { n?: number }) {
   return (
     <div className="space-y-3">
       {Array.from({ length: n }).map((_, i) => (
-        <Skeleton key={i} className="h-24 w-full rounded-2xl" />
+        <Skeleton key={i} className="shimmer h-24 w-full rounded-2xl" />
       ))}
     </div>
   );
@@ -405,7 +468,7 @@ export function StatSkeleton({ n = 4 }: { n?: number }) {
   return (
     <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
       {Array.from({ length: n }).map((_, i) => (
-        <Skeleton key={i} className="h-24 rounded-2xl" />
+        <Skeleton key={i} className="shimmer h-24 rounded-2xl" />
       ))}
     </div>
   );
@@ -425,3 +488,21 @@ export const BRAND_ICONS = {
   landmark: <Landmark className="h-4 w-4" />,
   rulebook: <ScrollText className="h-4 w-4" />,
 };
+
+/* ---------------- Error state with retry ---------------- */
+export function ErrorState({ message, onRetry }: { message: string; onRetry?: () => void }) {
+  return (
+    <div className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-rose-100 bg-rose-50/50 px-4 py-8 text-center">
+      <div className="text-sm font-semibold text-rose-600">Something went wrong</div>
+      <div className="max-w-xs text-xs text-rose-500/80">{message}</div>
+      {onRetry && (
+        <button
+          onClick={onRetry}
+          className="mt-1 rounded-xl bg-white px-4 py-2 text-xs font-semibold text-rose-600 ring-1 ring-rose-200 transition hover:bg-rose-50 active:scale-95"
+        >
+          Try again
+        </button>
+      )}
+    </div>
+  );
+}

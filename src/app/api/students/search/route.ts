@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { forbidden, getAuth, isStaff, syncOverdue, unauthorized } from "@/lib/auth";
 
 // FR-03 / FR-04 — staff-only student search for verification before fine assignment
 export async function GET(req: NextRequest) {
   try {
-    const role = req.headers.get("x-user-role");
-    if (role !== "ADMIN" && role !== "FACULTY") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    const auth = await getAuth(req);
+    if (!auth) return unauthorized();
+    if (!isStaff(auth)) return forbidden();
+    await syncOverdue();
     const rollNumber = req.nextUrl.searchParams.get("rollNumber")?.trim();
     if (!rollNumber) {
       return NextResponse.json({ error: "Roll number is required." }, { status: 400 });

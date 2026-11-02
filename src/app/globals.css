@@ -4,9 +4,22 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
+  /* iCloudEMS-style brand blue (matches the KRMU student portal app header) */
+  --color-brand-50: #eef6fe;
+  --color-brand-100: #d9ebfc;
+  --color-brand-200: #bcdcfa;
+  --color-brand-300: #8fc5f5;
+  --color-brand-400: #61aaee;
+  --color-brand-500: #4a9ee8;
+  --color-brand-600: #2f84d6;
+  --color-brand-700: #2569b4;
+  --color-brand-800: #225893;
+  --color-brand-900: #1f4a78;
+  --color-surface: #eef1f6;
+  --font-display: var(--font-lexend);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-lexend), var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
@@ -44,15 +57,15 @@
 }
 
 :root {
-  --radius: 0.625rem;
-  --background: oklch(1 0 0);
+  --radius: 0.875rem;
+  --background: #eef1f6;
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
+  --primary: #2f84d6;
+  --primary-foreground: #ffffff;
   --secondary: oklch(0.97 0 0);
   --secondary-foreground: oklch(0.205 0 0);
   --muted: oklch(0.97 0 0);
@@ -62,7 +75,7 @@
   --destructive: oklch(0.577 0.245 27.325);
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
+  --ring: #61aaee;
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
@@ -122,6 +135,21 @@
 }
 
 /* ===== UniFine custom ===== */
+html {
+  scroll-behavior: smooth;
+  -webkit-tap-highlight-color: transparent;
+}
+body {
+  font-feature-settings: "ss01", "cv11";
+  text-rendering: optimizeLegibility;
+}
+
+/* keyboard focus that matches the brand, without ugly mouse-click rings */
+:where(button, a, [role="button"], input, select, textarea):focus-visible {
+  outline: 2px solid var(--color-brand-400);
+  outline-offset: 2px;
+}
+
 @keyframes unifine-fade-up {
   from {
     opacity: 0;
@@ -132,11 +160,69 @@
     transform: translateY(0);
   }
 }
-
 .fade-up {
-  animation: unifine-fade-up 0.35s ease-out both;
+  animation: unifine-fade-up 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
+@keyframes wave {
+  0%, 60%, 100% { transform: rotate(0deg); }
+  10%, 30% { transform: rotate(14deg); }
+  20% { transform: rotate(-8deg); }
+  40% { transform: rotate(-4deg); }
+  50% { transform: rotate(10deg); }
+}
+
+@keyframes unifine-float {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(0, -14px, 0) scale(1.04);
+  }
+}
+.float-slow {
+  animation: unifine-float 9s ease-in-out infinite;
+}
+.float-slower {
+  animation: unifine-float 13s ease-in-out infinite reverse;
+}
+
+@keyframes unifine-shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+/* subtle moving sheen on skeleton loaders */
+.shimmer {
+  position: relative;
+  overflow: hidden;
+}
+.shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.55), transparent);
+  animation: unifine-shimmer 1.4s infinite;
+}
+
+@keyframes unifine-pulse-ring {
+  0% {
+    box-shadow: 0 0 0 0 rgba(74, 158, 232, 0.45);
+  }
+  100% {
+    box-shadow: 0 0 0 14px rgba(74, 158, 232, 0);
+  }
+}
+.pulse-ring {
+  animation: unifine-pulse-ring 2.2s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+}
+
+.nice-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+}
 .nice-scroll::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -152,7 +238,27 @@
   background: #94a3b8;
 }
 
-.ring-3 {
-  --tw-ring-offset-shadow: 0 0 #0000;
-  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.8);
+/* Avatar ring — Tailwind v4 has ring-3 natively; keep a white halo for photos */
+.avatar-ring {
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.9), 0 6px 16px -6px rgba(15, 23, 42, 0.25);
+}
+
+/* iOS: stop zoom-on-focus for small inputs on phones */
+@media (max-width: 640px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { Student } from "@prisma/client";
 import { db } from "@/lib/db";
+import { issueToken } from "@/lib/auth";
 import { hashPassword } from "@/lib/password";
 
 /**
@@ -135,7 +136,7 @@ export async function POST(req: NextRequest) {
           designation: user.designation,
         },
         student,
-        token: `demo.${Buffer.from(user.id).toString("base64url")}`,
+        token: issueToken(user),
       },
       { status: 201 },
     );

@@ -28,9 +28,12 @@ import {
   CardsSkeleton,
   StatSkeleton,
   LegendChip,
+  ErrorState,
 } from "./shared";
+import { Stagger, StaggerItem } from "./motion";
+import { toast } from "@/hooks/use-toast";
 import { StatusBadge } from "./StatusBadge";
-import { api, inr, fmtDate, fmtDateTime, toCsv, downloadCsv } from "./utils";
+import { api, inr, fmtDate, fmtDateTime, toCsv, downloadCsv, localISODate } from "./utils";
 import type { FineT, OffenceT, RuleEntryT, AuditT, SessionUser, SummaryT, NotificationT } from "./types";
 import {
   AlertTriangle,
@@ -73,14 +76,39 @@ import {
 
 const CHART_COLORS = ["#0ea5e9", "#8b5cf6", "#10b981", "#f59e0b", "#f43f5e", "#06b6d4", "#f97316"];
 
-type Nav =
-  | "home"
-  | "catalogue"
-  | "fines"
-  | "reports"
-  | "rulebook"
-  | "notifications"
-  | "audit";
+/** run an API action with a toast on failure (these used to fail silently / throw unhandled) */
+async function attempt(fn: () => Promise<unknown>, success?: string): Promise<boolean> {
+  try {
+    await fn();
+    if (success) toast({ title: success });
+    return true;
+  } catch (e) {
+    toast({ title: "Action failed", description: e instanceof Error ? e.message : "Please try again.", variant: "destructive" });
+    return false;
+  }
+}
+
+/** shared summary loader with error + retry (a failed request used to crash the Reports page) */
+function useSummary(session: SessionUser) {
+  const [summary, setSummary] = useState<SummaryT | null>(null);
+  const [error, setError] = useState("");
+  const [key, setKey] = useState(0);
+  useEffect(() => {
+    let alive = true;
+    api<SummaryT>(session, "/api/reports/summary")
+      .then((d) => alive && (setSummary(d), setError("")))
+      .catch((e) => alive && setError(e instanceof Error ? e.message : "Could not load summary."));
+    return () => {
+      alive = false;
+    };
+  }, [session, key]);
+  const retry = () => {
+    setError("");
+    setSummary(null);
+    setKey((k) => k + 1);
+  };
+  return { summary, error, retry };
+}
 
 export function AdminApp({
   session,
@@ -106,28 +134,46 @@ export function AdminApp({
 
 /* ---------------- Home ---------------- */
 function AdminHome({ session, onView }: { session: SessionUser; onView: (v: string) => void }) {
-  const [summary, setSummary] = useState<SummaryT | null>(null);
+  const { summary, error, retry } = useSummary(session);
   const [audit, setAudit] = useState<AuditT[] | null>(null);
 
   useEffect(() => {
-    api<SummaryT>(session, "/api/reports/summary").then(setSummary).catch(() => setSummary(undefined as never));
     api<{ audits: AuditT[] }>(session, "/api/audit?take=6").then((d) => setAudit(d.audits)).catch(() => setAudit([]));
   }, [session]);
 
   return (
     <>
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {summary === null ? (
-          <StatSkeleton />
-        ) : summary ? (
-          <>
-            <StatCard label="Total Fines" value={summary.total} sub={`${summary.studentsWithFines} students`} tone="blue" icon={<FileWarning className="h-4 w-4" />} />
-            <StatCard label="Collected" value={inr(summary.collected)} sub={`${summary.paidCount} fines cleared`} tone="emerald" icon={<BadgeIndianRupee className="h-4 w-4" />} />
-            <StatCard label="Outstanding" value={inr(summary.outstanding)} sub={`${summary.pendingCount + summary.overdueCount} unsettled`} tone="rose" icon={<AlertTriangle className="h-4 w-4" />} />
-            <StatCard label="Collection Rate" value={`${summary.collectionRate}%`} tone="violet" icon={<Percent className="h-4 w-4" />} />
-          </>
-        ) : null}
-      </div>
+      <Stagger className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <StaggerItem>
+          <ColorTile label="Offence Catalogue" icon={<Gavel />} tone="violet" onClick={() => onView("catalogue")} />
+        </StaggerItem>
+        <StaggerItem>
+          <ColorTile label="Correct Fines" icon={<ClipboardEdit />} tone="rose" onClick={() => onView("fines")} />
+        </StaggerItem>
+        <StaggerItem>
+          <ColorTile label="Reports" icon={<BarChart3 />} tone="emerald" onClick={() => onView("reports")} />
+        </StaggerItem>
+        <StaggerItem>
+          <ColorTile label="Rule Book" icon={<ScrollText />} tone="sky" onClick={() => onView("rulebook")} />
+        </StaggerItem>
+      </Stagger>
+
+      {error ? (
+        <ErrorState message={error} onRetry={retry} />
+      ) : (
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          {summary === null ? (
+            <StatSkeleton />
+          ) : (
+            <>
+              <StatCard label="Total Fines" value={summary.total} sub={`${summary.studentsWithFines} students`} tone="blue" icon={<FileWarning className="h-4 w-4" />} />
+              <StatCard label="Collected" value={summary.collected} money sub={`${summary.paidCount} fines cleared`} tone="emerald" icon={<BadgeIndianRupee className="h-4 w-4" />} />
+              <StatCard label="Outstanding" value={summary.outstanding} money sub={`${summary.pendingCount + summary.overdueCount} unsettled`} tone="rose" icon={<AlertTriangle className="h-4 w-4" />} />
+              <StatCard label="Collection Rate" value={summary.collectionRate} suffix="%" tone="violet" icon={<Percent className="h-4 w-4" />} />
+            </>
+          )}
+        </div>
+      )}
 
       {summary && (
         <SectionCard>
@@ -139,26 +185,19 @@ function AdminHome({ session, onView }: { session: SessionUser; onView: (v: stri
         </SectionCard>
       )}
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <ColorTile label="Offence Catalogue" icon={<Gavel className="h-11 w-11" />} tone="violet" onClick={() => onView("catalogue")} />
-        <ColorTile label="Correct Fines" icon={<ClipboardEdit className="h-11 w-11" />} tone="rose" onClick={() => onView("fines")} />
-        <ColorTile label="Reports" icon={<BarChart3 className="h-11 w-11" />} tone="emerald" onClick={() => onView("reports")} />
-        <ColorTile label="Rule Book" icon={<ScrollText className="h-11 w-11" />} tone="sky" onClick={() => onView("rulebook")} />
-      </div>
-
       <div className="grid gap-4 lg:grid-cols-5">
         <SectionCard className="lg:col-span-3">
-          <SectionHeader title="6-Month Trend" icon={<BarChart3 className="h-4 w-4 text-sky-500" />} />
+          <SectionHeader title="6-Month Trend" icon={<BarChart3 className="h-4 w-4 text-brand-500" />} />
           {summary === null ? (
-            <Skeleton className="h-56 w-full rounded-2xl" />
+            <Skeleton className="shimmer h-56 w-full rounded-2xl" />
           ) : summary ? (
             <div className="h-56">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={summary.byMonth} margin={{ top: 8, right: 8, left: -18, bottom: 0 }}>
+                <AreaChart data={summary.byMonth} margin={{ top: 8, right: 0, left: -18, bottom: 0 }}>
                   <defs>
                     <linearGradient id="gIssued" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#0ea5e9" stopOpacity={0.5} />
-                      <stop offset="100%" stopColor="#0ea5e9" stopOpacity={0.05} />
+                      <stop offset="0%" stopColor="#4a9ee8" stopOpacity={0.5} />
+                      <stop offset="100%" stopColor="#4a9ee8" stopOpacity={0.05} />
                     </linearGradient>
                     <linearGradient id="gCollected" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="0%" stopColor="#10b981" stopOpacity={0.5} />
@@ -167,27 +206,39 @@ function AdminHome({ session, onView }: { session: SessionUser; onView: (v: stri
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
                   <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
+                  {/* counts and rupees on separate axes — on one axis the "issued" line was flattened to 0 */}
+                  <YAxis yAxisId="count" allowDecimals={false} tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
+                  <YAxis
+                    yAxisId="money"
+                    orientation="right"
+                    width={52}
+                    tickFormatter={(v: number) => (v >= 1000 ? `₹${(v / 1000).toFixed(v % 1000 ? 1 : 0)}k` : `₹${v}`)}
+                    tick={{ fontSize: 11, fill: "#94a3b8" }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
                   <Tooltip
                     contentStyle={{ borderRadius: 16, border: "1px solid #e2e8f0", fontSize: 12 }}
                     formatter={(v: number, name: string) => [name === "issued" ? `${v} fines` : inr(v), name]}
                   />
-                  <Area type="monotone" dataKey="issued" stroke="#0ea5e9" strokeWidth={2.5} fill="url(#gIssued)" name="issued" />
-                  <Area type="monotone" dataKey="collected" stroke="#10b981" strokeWidth={2.5} fill="url(#gCollected)" name="collected" />
+                  <Area yAxisId="count" type="monotone" dataKey="issued" stroke="#4a9ee8" strokeWidth={2.5} fill="url(#gIssued)" name="issued" animationDuration={900} />
+                  <Area yAxisId="money" type="monotone" dataKey="collected" stroke="#10b981" strokeWidth={2.5} fill="url(#gCollected)" name="collected" animationDuration={1100} />
                 </AreaChart>
               </ResponsiveContainer>
               <div className="mt-1 flex justify-center gap-4">
-                <LegendChip color="#0ea5e9" label="Fines issued" />
-                <LegendChip color="#10b981" label="Amount collected" />
+                <LegendChip color="#4a9ee8" label="Fines issued (left)" />
+                <LegendChip color="#10b981" label="Amount collected (right)" />
               </div>
             </div>
           ) : null}
         </SectionCard>
 
         <SectionCard className="lg:col-span-2">
-          <SectionHeader title="Status Split" icon={<Landmark className="h-4 w-4 text-sky-500" />} />
+          <SectionHeader title="Status Split" icon={<Landmark className="h-4 w-4 text-brand-500" />} />
           {summary === null ? (
-            <Skeleton className="mx-auto h-44 w-44 rounded-full" />
+            <Skeleton className="shimmer mx-auto h-44 w-44 rounded-full" />
+          ) : summary.total === 0 ? (
+            <EmptyState title="No fines yet" />
           ) : summary ? (
             <>
               <div className="mx-auto h-44 w-full">
@@ -226,9 +277,9 @@ function AdminHome({ session, onView }: { session: SessionUser; onView: (v: stri
       <SectionCard>
         <SectionHeader
           title="Recent Activity"
-          icon={<History className="h-4 w-4 text-sky-500" />}
+          icon={<History className="h-4 w-4 text-brand-500" />}
           action={
-            <Button variant="ghost" size="sm" className="h-8 rounded-lg text-xs font-bold text-sky-600 hover:bg-sky-50" onClick={() => onView("audit")}>
+            <Button variant="ghost" size="sm" className="h-8 rounded-lg text-xs font-bold text-brand-600 hover:bg-brand-50" onClick={() => onView("audit")}>
               Full audit trail
             </Button>
           }
@@ -241,7 +292,7 @@ function AdminHome({ session, onView }: { session: SessionUser; onView: (v: stri
           <ol className="relative space-y-3 border-l-2 border-slate-100 pl-4">
             {audit.map((a) => (
               <li key={a.id} className="relative">
-                <span className="absolute -left-[22px] top-1.5 h-2.5 w-2.5 rounded-full bg-gradient-to-br from-sky-400 to-blue-600 ring-2 ring-white" />
+                <span className="absolute -left-[22px] top-1.5 h-2.5 w-2.5 rounded-full bg-gradient-to-br from-brand-400 to-brand-600 ring-2 ring-white" />
                 <div className="text-xs font-bold text-slate-700">
                   {a.action.replaceAll("_", " ")}
                   {a.fine ? (
@@ -275,7 +326,12 @@ function OffenceCatalogue({ session }: { session: SessionUser }) {
   const [q, setQ] = useState("");
 
   const load = () => {
-    api<{ offences: OffenceT[] }>(session, "/api/offences").then((d) => setOffences(d.offences)).catch(() => setOffences([]));
+    api<{ offences: OffenceT[] }>(session, "/api/offences")
+      .then((d) => setOffences(d.offences))
+      .catch((e) => {
+        setOffences([]);
+        toast({ title: "Could not load catalogue", description: e instanceof Error ? e.message : "", variant: "destructive" });
+      });
   };
   useEffect(load, [session]);
 
@@ -298,6 +354,10 @@ function OffenceCatalogue({ session }: { session: SessionUser }) {
       setError("Code, name, rule reference and amount are required.");
       return;
     }
+    if (!(Number(form.amount) > 0)) {
+      setError("Amount must be a positive number.");
+      return;
+    }
     setSaving(true);
     try {
       if (editing) {
@@ -312,6 +372,7 @@ function OffenceCatalogue({ session }: { session: SessionUser }) {
         });
       }
       setDialogOpen(false);
+      toast({ title: editing ? "Offence updated" : "Offence added" });
       load();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Save failed.");
@@ -321,8 +382,12 @@ function OffenceCatalogue({ session }: { session: SessionUser }) {
   };
 
   const toggleActive = async (o: OffenceT) => {
-    await api(session, `/api/offences/${o.id}`, { method: "PATCH", body: JSON.stringify({ active: !o.active }) });
-    load();
+    // optimistic toggle, rolled back on failure
+    setOffences((prev) => prev?.map((x) => (x.id === o.id ? { ...x, active: !o.active } : x)) ?? null);
+    const ok = await attempt(() =>
+      api(session, `/api/offences/${o.id}`, { method: "PATCH", body: JSON.stringify({ active: !o.active }) })
+    );
+    if (!ok) setOffences((prev) => prev?.map((x) => (x.id === o.id ? { ...x, active: o.active } : x)) ?? null);
   };
 
   const filtered = (offences ?? []).filter(
@@ -333,9 +398,9 @@ function OffenceCatalogue({ session }: { session: SessionUser }) {
     <SectionCard>
       <SectionHeader
         title="Offence Catalogue"
-        icon={<Gavel className="h-4 w-4 text-sky-500" />}
+        icon={<Gavel className="h-4 w-4 text-brand-500" />}
         action={
-          <Button onClick={openAdd} size="sm" className="h-9 gap-1.5 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 text-xs font-bold">
+          <Button onClick={openAdd} size="sm" className="h-9 gap-1.5 rounded-xl bg-gradient-to-r from-brand-500 to-brand-600 text-xs font-bold">
             <PlusCircle className="h-3.5 w-3.5" /> Add offence
           </Button>
         }
@@ -347,12 +412,14 @@ function OffenceCatalogue({ session }: { session: SessionUser }) {
 
       {offences === null ? (
         <CardsSkeleton n={5} />
+      ) : filtered.length === 0 ? (
+        <EmptyState title={q ? "No matching offences" : "Catalogue is empty"} hint={q ? "Try another keyword." : "Add the first offence to get started."} />
       ) : (
         <div className="max-h-[62vh] space-y-2 overflow-y-auto pe-1 nice-scroll">
           {filtered.map((o) => (
             <div key={o.id} className="flex items-start gap-3 rounded-2xl border border-slate-200/80 p-3.5">
               <span className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${o.active ? "bg-gradient-to-br from-violet-100 to-purple-50 text-violet-600" : "bg-slate-100 text-slate-400"}`}>
-                <Gavel className="h-4.5 w-4.5" />
+                <Gavel className="h-[18px] w-[18px]" />
               </span>
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
@@ -363,13 +430,13 @@ function OffenceCatalogue({ session }: { session: SessionUser }) {
                 </div>
                 <p className="mt-0.5 line-clamp-1 text-[11px] text-slate-400">{o.description}</p>
                 <div className="mt-1 flex items-center gap-3 text-xs">
-                  <span className="font-extrabold text-slate-700">{inr(o.amount)}</span>
+                  <span className="font-bold text-slate-700">{inr(o.amount)}</span>
                   <span className="text-slate-400">{o.category}</span>
                 </div>
               </div>
               <div className="flex shrink-0 flex-col items-end gap-2">
                 <Switch checked={o.active} onCheckedChange={() => toggleActive(o)} aria-label="Toggle active" />
-                <Button variant="ghost" size="sm" onClick={() => openEdit(o)} className="h-7 gap-1 rounded-lg px-2 text-[11px] font-bold text-sky-600 hover:bg-sky-50">
+                <Button variant="ghost" size="sm" onClick={() => openEdit(o)} className="h-7 gap-1 rounded-lg px-2 text-[11px] font-bold text-brand-600 hover:bg-brand-50">
                   <Pencil className="h-3 w-3" /> Edit
                 </Button>
               </div>
@@ -413,7 +480,9 @@ function OffenceCatalogue({ session }: { session: SessionUser }) {
                   onChange={(e) => setForm({ ...form, category: e.target.value })}
                   className="mt-1 h-10 w-full rounded-xl border border-slate-200 bg-slate-50/70 px-3 text-sm text-slate-700"
                 >
-                  {["Campus Discipline", "Dress & Conduct", "Academics", "Library", "Hostel", "Examinations", "Major Discipline"].map((c) => (
+                  {Array.from(
+                    new Set([form.category, "Campus Discipline", "Dress & Conduct", "Academics", "Library", "Hostel", "Examinations", "Major Discipline"].filter(Boolean))
+                  ).map((c) => (
                     <option key={c}>{c}</option>
                   ))}
                 </select>
@@ -433,7 +502,7 @@ function OffenceCatalogue({ session }: { session: SessionUser }) {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)} className="rounded-xl">Cancel</Button>
-            <Button onClick={save} disabled={saving} className="rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 font-bold">
+            <Button onClick={save} disabled={saving} className="rounded-xl bg-gradient-to-r from-brand-500 to-brand-600 font-bold">
               {saving && <Loader2 className="mr-1 h-4 w-4 animate-spin" />} {editing ? "Save changes" : "Add offence"}
             </Button>
           </DialogFooter>
@@ -455,8 +524,14 @@ function AdminFines({ session }: { session: SessionUser }) {
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
 
+  const [busyId, setBusyId] = useState<string | null>(null);
   const load = () => {
-    api<{ fines: FineT[] }>(session, "/api/fines").then((d) => setFines(d.fines)).catch(() => setFines([]));
+    api<{ fines: FineT[] }>(session, "/api/fines")
+      .then((d) => setFines(d.fines))
+      .catch((e) => {
+        setFines([]);
+        toast({ title: "Could not load fines", description: e instanceof Error ? e.message : "", variant: "destructive" });
+      });
   };
   useEffect(load, [session]);
 
@@ -484,8 +559,17 @@ function AdminFines({ session }: { session: SessionUser }) {
   };
 
   const markPaid = async (f: FineT) => {
-    await api(session, `/api/fines/${f.id}`, { method: "PATCH", body: JSON.stringify({ status: "PAID", note: "Marked paid via UniFine admin." }) });
-    load();
+    if (busyId) return; // prevents double-submits from rapid taps
+    setBusyId(f.id);
+    const ok = await attempt(
+      () => api(session, `/api/fines/${f.id}`, { method: "PATCH", body: JSON.stringify({ status: "PAID", note: "Marked paid via UniFine admin." }) }),
+      `Marked paid — ${f.student.name}`
+    );
+    setBusyId(null);
+    if (ok) {
+      setSelected(null);
+      load();
+    }
   };
 
   const saveCorrection = async () => {
@@ -493,6 +577,10 @@ function AdminFines({ session }: { session: SessionUser }) {
     setError("");
     if (!form.note.trim()) {
       setError("A correction note is mandatory for the audit trail.");
+      return;
+    }
+    if (!(Number(form.amount) > 0)) {
+      setError("Amount must be a positive number.");
       return;
     }
     setSaving(true);
@@ -508,6 +596,7 @@ function AdminFines({ session }: { session: SessionUser }) {
       });
       setCorrectOpen(false);
       setSelected(null);
+      toast({ title: "Correction saved", description: "The change is recorded in the audit trail." });
       load();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Correction failed.");
@@ -518,7 +607,7 @@ function AdminFines({ session }: { session: SessionUser }) {
 
   return (
     <SectionCard>
-      <SectionHeader title="All Fines & Corrections" icon={<ClipboardEdit className="h-4 w-4 text-sky-500" />} />
+      <SectionHeader title="All Fines & Corrections" icon={<ClipboardEdit className="h-4 w-4 text-brand-500" />} />
       <div className="mb-3 flex flex-col gap-2 sm:flex-row">
         <div className="relative flex-1">
           <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search student, roll, offence, staff…" className="h-10 rounded-xl border-slate-200 bg-slate-50/70 pl-9 text-sm" />
@@ -555,13 +644,14 @@ function AdminFines({ session }: { session: SessionUser }) {
                     <Button
                       size="sm"
                       variant="outline"
+                      disabled={busyId === f.id}
                       onClick={(e) => {
                         e.stopPropagation();
                         markPaid(f);
                       }}
                       className="h-7 rounded-lg border-emerald-200 px-2 text-[11px] font-bold text-emerald-600 hover:bg-emerald-50"
                     >
-                      <CheckCircle2 className="mr-1 h-3 w-3" /> Paid
+                      {busyId === f.id ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <CheckCircle2 className="mr-1 h-3 w-3" />} Paid
                     </Button>
                   )}
                   <Button
@@ -591,7 +681,7 @@ function AdminFines({ session }: { session: SessionUser }) {
           selected && (
             <div className="flex gap-2">
               {selected.status !== "PAID" && (
-                <Button variant="outline" className="flex-1 rounded-xl font-bold text-emerald-600" onClick={() => markPaid(selected)}>
+                <Button variant="outline" disabled={!!busyId} className="flex-1 rounded-xl font-bold text-emerald-600" onClick={() => markPaid(selected)}>
                   <CheckCircle2 className="mr-1 h-4 w-4" /> Mark paid
                 </Button>
               )}
@@ -664,18 +754,20 @@ function AdminFines({ session }: { session: SessionUser }) {
 
 /* ---------------- Reports (FR-15) ---------------- */
 function ReportsView({ session }: { session: SessionUser }) {
-  const [summary, setSummary] = useState<SummaryT | null>(null);
+  const { summary, error, retry } = useSummary(session);
   const [fines, setFines] = useState<FineT[] | null>(null);
 
   useEffect(() => {
-    api<SummaryT>(session, "/api/reports/summary").then(setSummary).catch(() => setSummary(undefined as never));
     api<{ fines: FineT[] }>(session, "/api/fines").then((d) => setFines(d.fines)).catch(() => setFines([]));
   }, [session]);
 
   const exportCsv = () => {
-    if (!fines) return;
+    if (!fines || fines.length === 0) {
+      toast({ title: "Nothing to export yet", description: "There are no fine records." });
+      return;
+    }
     downloadCsv(
-      `unifine-report-${new Date().toISOString().slice(0, 10)}.csv`,
+      `unifine-report-${localISODate()}.csv`,
       toCsv(
         fines.map((f) => ({
           Roll: f.student.rollNumber,
@@ -695,27 +787,29 @@ function ReportsView({ session }: { session: SessionUser }) {
     );
   };
 
+  if (error) return <ErrorState message={error} onRetry={retry} />;
+
   return (
     <>
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {summary === null ? (
           <StatSkeleton />
-        ) : summary ? (
+        ) : (
           <>
             <StatCard label="Total Fines" value={summary.total} tone="blue" icon={<FileWarning className="h-4 w-4" />} />
-            <StatCard label="Collected" value={inr(summary.collected)} tone="emerald" icon={<CheckCircle2 className="h-4 w-4" />} />
-            <StatCard label="Outstanding" value={inr(summary.outstanding)} tone="rose" icon={<AlertTriangle className="h-4 w-4" />} />
-            <StatCard label="Collection Rate" value={`${summary.collectionRate}%`} tone="violet" icon={<Percent className="h-4 w-4" />} />
+            <StatCard label="Collected" value={summary.collected} money tone="emerald" icon={<CheckCircle2 className="h-4 w-4" />} />
+            <StatCard label="Outstanding" value={summary.outstanding} money tone="rose" icon={<AlertTriangle className="h-4 w-4" />} />
+            <StatCard label="Collection Rate" value={summary.collectionRate} suffix="%" tone="violet" icon={<Percent className="h-4 w-4" />} />
           </>
-        ) : null}
+        )}
       </div>
 
       <SectionCard>
         <SectionHeader
           title="Detailed Report"
-          icon={<BarChart3 className="h-4 w-4 text-sky-500" />}
+          icon={<BarChart3 className="h-4 w-4 text-brand-500" />}
           action={
-            <Button onClick={exportCsv} size="sm" className="h-9 gap-1.5 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 text-xs font-bold">
+            <Button onClick={exportCsv} size="sm" className="h-9 gap-1.5 rounded-xl bg-gradient-to-r from-brand-500 to-brand-600 text-xs font-bold">
               <FileDown className="h-3.5 w-3.5" /> Export CSV
             </Button>
           }
@@ -749,16 +843,18 @@ function ReportsView({ session }: { session: SessionUser }) {
             <h4 className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-400">Top offences</h4>
             {summary === null ? (
               <CardsSkeleton n={4} />
+            ) : summary.topOffences.length === 0 ? (
+              <EmptyState title="No data yet" />
             ) : (
               <div className="space-y-2">
                 {summary.topOffences.map((o, i) => (
                   <div key={o.name} className="flex items-center gap-3 rounded-2xl border border-slate-200/80 px-3.5 py-2.5">
-                    <span className="flex h-7 w-7 items-center justify-center rounded-lg text-xs font-extrabold text-white" style={{ background: CHART_COLORS[i % CHART_COLORS.length] }}>
+                    <span className="flex h-7 w-7 items-center justify-center rounded-lg text-xs font-bold text-white" style={{ background: CHART_COLORS[i % CHART_COLORS.length] }}>
                       {i + 1}
                     </span>
                     <span className="min-w-0 flex-1 truncate text-xs font-bold text-slate-700">{o.name}</span>
                     <span className="text-[11px] text-slate-400">{o.count}×</span>
-                    <span className="text-xs font-extrabold text-slate-700">{inr(o.amount)}</span>
+                    <span className="text-xs font-bold text-slate-700">{inr(o.amount)}</span>
                   </div>
                 ))}
               </div>
@@ -800,7 +896,12 @@ function RuleBookAdmin({ session }: { session: SessionUser }) {
   const [error, setError] = useState("");
 
   const load = () => {
-    api<{ entries: RuleEntryT[] }>(session, "/api/rule-book").then((d) => setEntries(d.entries)).catch(() => setEntries([]));
+    api<{ entries: RuleEntryT[] }>(session, "/api/rule-book")
+      .then((d) => setEntries(d.entries))
+      .catch((e) => {
+        setEntries([]);
+        toast({ title: "Could not load rule book", description: e instanceof Error ? e.message : "", variant: "destructive" });
+      });
   };
   useEffect(load, [session]);
 
@@ -818,6 +919,7 @@ function RuleBookAdmin({ session }: { session: SessionUser }) {
         await api(session, "/api/rule-book", { method: "POST", body: JSON.stringify(form) });
       }
       setDialogOpen(false);
+      toast({ title: editing ? "Rule updated" : "Rule added" });
       load();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Save failed.");
@@ -827,8 +929,10 @@ function RuleBookAdmin({ session }: { session: SessionUser }) {
   };
 
   const toggle = async (r: RuleEntryT) => {
-    await api(session, `/api/rule-book/${r.id}`, { method: "PATCH", body: JSON.stringify({ active: !r.active }) });
-    load();
+    setEntries((prev) => prev?.map((x) => (x.id === r.id ? { ...x, active: !r.active } : x)) ?? null);
+    const ok = await attempt(() => api(session, `/api/rule-book/${r.id}`, { method: "PATCH", body: JSON.stringify({ active: !r.active }) }));
+    if (ok) load();
+    else setEntries((prev) => prev?.map((x) => (x.id === r.id ? { ...x, active: r.active } : x)) ?? null);
   };
 
   const grouped = useMemo(() => {
@@ -844,7 +948,7 @@ function RuleBookAdmin({ session }: { session: SessionUser }) {
     <SectionCard>
       <SectionHeader
         title="Rule Book Management"
-        icon={<BookOpenCheck className="h-4 w-4 text-sky-500" />}
+        icon={<BookOpenCheck className="h-4 w-4 text-brand-500" />}
         action={
           <Button
             size="sm"
@@ -854,7 +958,7 @@ function RuleBookAdmin({ session }: { session: SessionUser }) {
               setError("");
               setDialogOpen(true);
             }}
-            className="h-9 gap-1.5 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 text-xs font-bold"
+            className="h-9 gap-1.5 rounded-xl bg-gradient-to-r from-brand-500 to-brand-600 text-xs font-bold"
           >
             <PlusCircle className="h-3.5 w-3.5" /> Add rule
           </Button>
@@ -862,12 +966,14 @@ function RuleBookAdmin({ session }: { session: SessionUser }) {
       />
       {entries === null ? (
         <CardsSkeleton n={4} />
+      ) : grouped.length === 0 ? (
+        <EmptyState title="No rules yet" hint="Add the first rule so students can read it in the app." />
       ) : (
         <div className="max-h-[62vh] space-y-4 overflow-y-auto pe-1 nice-scroll">
           {grouped.map(([cat, rules]) => (
             <div key={cat}>
-              <h4 className="mb-2 flex items-center gap-2 text-xs font-extrabold uppercase tracking-wider text-slate-400">
-                <BookOpenCheck className="h-3.5 w-3.5 text-sky-400" /> {cat}
+              <h4 className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-400">
+                <BookOpenCheck className="h-3.5 w-3.5 text-brand-400" /> {cat}
               </h4>
               <div className="space-y-2">
                 {rules.map((r) => (
@@ -887,7 +993,7 @@ function RuleBookAdmin({ session }: { session: SessionUser }) {
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="h-7 gap-1 rounded-lg px-2 text-[11px] font-bold text-sky-600 hover:bg-sky-50"
+                          className="h-7 gap-1 rounded-lg px-2 text-[11px] font-bold text-brand-600 hover:bg-brand-50"
                           onClick={() => {
                             setEditing(r);
                             setForm({ category: r.category, title: r.title, content: r.content, ruleRef: r.ruleRef ?? "" });
@@ -908,7 +1014,7 @@ function RuleBookAdmin({ session }: { session: SessionUser }) {
       )}
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="rounded-3xl sm:max-w-md">
+        <DialogContent className="max-h-[85vh] overflow-y-auto rounded-3xl sm:max-w-md">
           <DialogHeader>
             <DialogTitle>{editing ? "Edit rule" : "Add rule"}</DialogTitle>
             <DialogDescription>Students and staff see active rules instantly in their rule book.</DialogDescription>
@@ -936,7 +1042,7 @@ function RuleBookAdmin({ session }: { session: SessionUser }) {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)} className="rounded-xl">Cancel</Button>
-            <Button onClick={save} disabled={saving} className="rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 font-bold">
+            <Button onClick={save} disabled={saving} className="rounded-xl bg-gradient-to-r from-brand-500 to-brand-600 font-bold">
               {saving && <Loader2 className="mr-1 h-4 w-4 animate-spin" />} {editing ? "Save changes" : "Add rule"}
             </Button>
           </DialogFooter>
@@ -954,7 +1060,9 @@ function BroadcastView({ session }: { session: SessionUser }) {
   const [error, setError] = useState("");
 
   const load = () => {
-    api<{ notifications: NotificationT[] }>(session, "/api/notifications").then((d) => setItems(d.notifications)).catch(() => setItems([]));
+    api<{ notifications: NotificationT[] }>(session, "/api/notifications?scope=sent")
+      .then((d) => setItems(d.notifications))
+      .catch(() => setItems([]));
   };
   useEffect(load, [session]);
 
@@ -968,6 +1076,7 @@ function BroadcastView({ session }: { session: SessionUser }) {
     try {
       await api(session, "/api/notifications", { method: "POST", body: JSON.stringify(form) });
       setForm({ audience: form.audience, type: form.type, title: "", message: "" });
+      toast({ title: "Broadcast sent", description: `Delivered to ${form.audience === "ALL" ? "everyone" : form.audience.toLowerCase() + "s"}.` });
       load();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Send failed.");
@@ -979,7 +1088,7 @@ function BroadcastView({ session }: { session: SessionUser }) {
   return (
     <div className="grid gap-4 lg:grid-cols-5">
       <SectionCard className="lg:col-span-2">
-        <SectionHeader title="Send Broadcast" icon={<Send className="h-4 w-4 text-sky-500" />} />
+        <SectionHeader title="Send Broadcast" icon={<Send className="h-4 w-4 text-brand-500" />} />
         <div className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -1018,14 +1127,14 @@ function BroadcastView({ session }: { session: SessionUser }) {
             <Textarea value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })} placeholder="Write the announcement…" className="mt-1 min-h-[90px] rounded-xl bg-slate-50/70 text-sm" />
           </div>
           {error && <p className="rounded-xl bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-600 ring-1 ring-rose-100">{error}</p>}
-          <Button onClick={send} disabled={sending} className="w-full rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 font-bold">
+          <Button onClick={send} disabled={sending} className="w-full rounded-xl bg-gradient-to-r from-brand-500 to-brand-600 font-bold">
             {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Send className="mr-1.5 h-4 w-4" /> Send notification</>}
           </Button>
         </div>
       </SectionCard>
 
       <SectionCard className="lg:col-span-3">
-        <SectionHeader title="Recent Notifications" icon={<BellRing className="h-4 w-4 text-sky-500" />} />
+        <SectionHeader title="Sent Broadcasts" icon={<BellRing className="h-4 w-4 text-brand-500" />} />
         {items === null ? (
           <CardsSkeleton n={4} />
         ) : items.length === 0 ? (
@@ -1036,7 +1145,7 @@ function BroadcastView({ session }: { session: SessionUser }) {
               <li key={n.id} className="rounded-2xl border border-slate-100 p-3.5">
                 <div className="flex items-center gap-2">
                   <span className="truncate text-sm font-bold text-slate-700">{n.title}</span>
-                  <Badge variant="outline" className="ml-auto shrink-0 border-sky-200 bg-sky-50 text-[10px] font-bold text-sky-600">
+                  <Badge variant="outline" className="ml-auto shrink-0 border-brand-200 bg-brand-50 text-[10px] font-bold text-brand-600">
                     {n.audience}
                   </Badge>
                 </div>
@@ -1057,7 +1166,12 @@ function AuditView({ session }: { session: SessionUser }) {
   const [action, setAction] = useState("ALL");
 
   useEffect(() => {
-    api<{ audits: AuditT[] }>(session, "/api/audit?take=200").then((d) => setAudits(d.audits)).catch(() => setAudits([]));
+    api<{ audits: AuditT[] }>(session, "/api/audit?take=200")
+      .then((d) => setAudits(d.audits))
+      .catch((e) => {
+        setAudits([]);
+        toast({ title: "Could not load audit trail", description: e instanceof Error ? e.message : "", variant: "destructive" });
+      });
   }, [session]);
 
   const filtered = useMemo(
@@ -1067,7 +1181,7 @@ function AuditView({ session }: { session: SessionUser }) {
 
   return (
     <SectionCard>
-      <SectionHeader title="Audit Trail" icon={<ShieldCheck className="h-4 w-4 text-sky-500" />} />
+      <SectionHeader title="Audit Trail" icon={<ShieldCheck className="h-4 w-4 text-brand-500" />} />
       <div className="mb-3">
         <select
           value={action}
@@ -1093,9 +1207,9 @@ function AuditView({ session }: { session: SessionUser }) {
               <div className="flex flex-wrap items-center gap-2">
                 <Badge
                   variant="outline"
-                  className={`text-[10px] font-extrabold ${
+                  className={`text-[10px] font-bold ${
                     a.action === "CREATED"
-                      ? "border-sky-200 bg-sky-50 text-sky-600"
+                      ? "border-brand-200 bg-brand-50 text-brand-600"
                       : a.action === "CORRECTED"
                         ? "border-violet-200 bg-violet-50 text-violet-600"
                         : a.action === "MARKED_PAID"

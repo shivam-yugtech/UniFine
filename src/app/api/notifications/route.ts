@@ -1,31 +1,29 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { forbidden, getAuth, unauthorized } from "@/lib/auth";
+import { audienceFilter } from "@/lib/notifications";
+
+const AUDIENCES = new Set(["ALL", "ADMIN", "FACULTY", "STUDENT"]);
+const TYPES = new Set(["GENERAL", "STATUS", "PAYMENT", "FINE_ISSUED"]);
 
 export async function GET(req: NextRequest) {
   try {
-    const role = req.headers.get("x-user-role");
-    const userId = req.headers.get("x-user-id");
-    if (!role || !userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const auth = await getAuth(req);
+    if (!auth) return unauthorized();
 
-    // Students: personal + broadcast. Staff: role + broadcast.
-    const audienceFilter =
-      role === "STUDENT"
-        ? await (async () => {
-            const student = await db.student.findUnique({ where: { id: userId } }).catch(() => null);
-            const byRoll = !student && req.headers.get("x-user-roll")
-              ? await db.student.findUnique({ where: { rollNumber: req.headers.get("x-user-roll") as string } })
-              : null;
-            const sid = student?.id ?? byRoll?.id;
-            return { OR: [{ audience: "ALL" }, { audience: "STUDENT" }, { audience: "USER", userId: sid ?? "__none__" }] };
-          })()
-        : { OR: [{ audience: "ALL" }, { audience: role }, { audience: "USER", userId }] };
+    // Admins can list every broadcast they've sent (scope=sent); previously broadcasts to
+    // Students/Faculty vanished from the admin's "Recent Notifications" list.
+    const sent = req.nextUrl.searchParams.get("scope") === "sent" && auth.role === "ADMIN";
+    const where = sent ? { audience: { not: "USER" } } : await audienceFilter(auth);
 
-    const notifications = await db.notification.findMany({
-      where: audienceFilter,
+    const rows = await db.notification.findMany({
+      where,
       orderBy: { createdAt: "desc" },
       take: 50,
+      include: { reads: { where: { userId: auth.id }, select: { id: true } } },
     });
-    return NextResponse.json({ notifications });
+    const notifications = rows.map(({ reads, ...n }) => ({ ...n, read: reads.length > 0 }));
+    return NextResponse.json({ notifications, unread: notifications.filter((n) => !n.read).length });
   } catch {
     return NextResponse.json({ error: "Could not load notifications." }, { status: 500 });
   }
@@ -34,16 +32,24 @@ export async function GET(req: NextRequest) {
 // Admin broadcasts (FR-16)
 export async function POST(req: NextRequest) {
   try {
-    if (req.headers.get("x-user-role") !== "ADMIN") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    const auth = await getAuth(req);
+    if (!auth) return unauthorized();
+    if (auth.role !== "ADMIN") return forbidden("Only admins can send broadcasts.");
+
+    const body = await req.json().catch(() => null);
+    const audience = String(body?.audience ?? "");
+    const type = String(body?.type ?? "GENERAL");
+    const title = String(body?.title ?? "").trim();
+    const message = String(body?.message ?? "").trim();
+    if (!AUDIENCES.has(audience)) return NextResponse.json({ error: "Choose a valid audience." }, { status: 400 });
+    if (!TYPES.has(type)) return NextResponse.json({ error: "Choose a valid notification type." }, { status: 400 });
+    if (!title || !message) {
+      return NextResponse.json({ error: "Title and message are required." }, { status: 400 });
     }
-    const { audience, title, message, type } = await req.json();
-    if (!audience || !title || !message) {
-      return NextResponse.json({ error: "Audience, title and message are required." }, { status: 400 });
+    if (title.length > 120 || message.length > 1000) {
+      return NextResponse.json({ error: "Title (120) or message (1000) is too long." }, { status: 400 });
     }
-    const notification = await db.notification.create({
-      data: { audience, title, message, type: type || "GENERAL" },
-    });
+    const notification = await db.notification.create({ data: { audience, title, message, type } });
     return NextResponse.json({ notification }, { status: 201 });
   } catch {
     return NextResponse.json({ error: "Could not send notification." }, { status: 500 });

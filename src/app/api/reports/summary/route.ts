@@ -1,17 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { forbidden, getAuth, isStaff, syncOverdue, unauthorized } from "@/lib/auth";
 
 // FR-15 — dashboard/report metrics (admin: global, faculty: own-issued scope)
 export async function GET(req: NextRequest) {
   try {
-    const role = req.headers.get("x-user-role");
-    if (!role) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const auth = await getAuth(req);
+    if (!auth) return unauthorized();
+    if (!isStaff(auth)) return forbidden();
+    await syncOverdue();
     const scope = req.nextUrl.searchParams.get("scope"); // "me" for faculty
-    const userId = req.headers.get("x-user-id");
 
     const fines = await db.fine.findMany({
-      where: scope === "me" && userId ? { issuedById: userId } : undefined,
-      include: { offence: { select: { category: true } }, student: { select: { id: true } } },
+      where: scope === "me" ? { issuedById: auth.id } : undefined,
+      include: { offence: { select: { category: true, name: true } }, student: { select: { id: true } } },
     });
 
     const total = fines.length;
@@ -57,11 +59,7 @@ export async function GET(req: NextRequest) {
     }
 
     const topOffencesMap: Record<string, { name: string; count: number; amount: number }> = {};
-    const fineOffences = await db.fine.findMany({
-      where: scope === "me" && userId ? { issuedById: userId } : undefined,
-      include: { offence: { select: { name: true } } },
-    });
-    for (const f of fineOffences) {
+    for (const f of fines) {
       topOffencesMap[f.offence.name] = topOffencesMap[f.offence.name] || { name: f.offence.name, count: 0, amount: 0 };
       topOffencesMap[f.offence.name].count += 1;
       topOffencesMap[f.offence.name].amount += f.amountSnapshot;
