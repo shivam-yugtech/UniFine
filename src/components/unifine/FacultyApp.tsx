@@ -110,13 +110,13 @@ function FacultyHome({ session, onView }: { session: SessionUser; onView: (v: st
         <StaggerItem className="col-span-3 lg:col-span-1">
           <ColorTile label="Fine History" icon={<History />} tone="violet" onClick={() => onView("history")} />
         </StaggerItem>
-        <StaggerItem className="col-span-2 lg:col-span-1">
+        <StaggerItem className="col-span-3 min-[380px]:col-span-2 lg:col-span-1">
           <ColorTile label="Collection" value={summary ? inr(summary.collected) : "—"} icon={<BadgeIndianRupee />} tone="emerald" onClick={() => onView("history")} />
         </StaggerItem>
-        <StaggerItem className="col-span-2 lg:col-span-1">
+        <StaggerItem className="col-span-3 min-[380px]:col-span-2 lg:col-span-1">
           <ColorTile label="Rule Book" icon={<ScrollText />} tone="sky" onClick={() => onView("rulebook")} />
         </StaggerItem>
-        <StaggerItem className="col-span-2 lg:hidden">
+        <StaggerItem className="col-span-6 min-[380px]:col-span-2 lg:hidden">
           <ColorTile label="Alerts" icon={<Bell />} tone="amber" onClick={() => onView("notifications")} />
         </StaggerItem>
       </Stagger>
@@ -441,7 +441,7 @@ function AssignFine({ session, onDone }: { session: SessionUser; onDone: () => v
             <CardsSkeleton n={4} />
           ) : (
             <>
-              <div className="max-h-[22rem] space-y-2 overflow-y-auto pe-1 nice-scroll">
+              <div className="space-y-2 lg:max-h-[22rem] lg:overflow-y-auto lg:pe-1 nice-scroll">
                 {offences.length === 0 && (
                   <EmptyState title="No active offences" hint="Ask an administrator to add offences to the catalogue." />
                 )}
@@ -726,7 +726,7 @@ function FineHistory({ session }: { session: SessionUser }) {
       ) : filtered.length === 0 ? (
         <EmptyState title="No fines found" hint="Adjust your filters or search term." />
       ) : (
-        <div className="max-h-[60vh] space-y-2.5 overflow-y-auto pe-1 nice-scroll">
+        <div className="space-y-2.5 lg:max-h-[60vh] lg:overflow-y-auto lg:pe-1 nice-scroll">
           {filtered.map((f) => (
             <FineCard key={f.id} fine={f} showStudent onClick={() => setSelected(f)} />
           ))}

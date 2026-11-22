@@ -6,7 +6,7 @@ import { verifyPassword } from "@/lib/password";
 
 export async function POST(req: NextRequest) {
   try {
-    const { email, password } = await req.json();
+    const { email, password } = await req.json().catch(() => ({}));
     if (!email || !password) {
       return NextResponse.json({ error: "Email and password are required." }, { status: 400 });
     }
@@ -39,7 +39,13 @@ export async function POST(req: NextRequest) {
       student,
       token: issueToken(user),
     });
-  } catch {
-    return NextResponse.json({ error: "Login failed. Please try again." }, { status: 500 });
+  } catch (e) {
+    console.error("[login] failed:", e);
+    const msg = e instanceof Error ? e.message : String(e);
+    const setup = /no such table|did not initialize|Can't reach database|Unable to open the database|P2021/i.test(msg);
+    return NextResponse.json(
+      { error: setup ? "Database is not set up. On the server run: npm run db:deploy, then restart." : "Login failed. Please try again." },
+      { status: 500 },
+    );
   }
 }

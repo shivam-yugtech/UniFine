@@ -188,7 +188,7 @@ export default function UniFinePage() {
 
   if (booting) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-surface">
+      <div className="flex min-h-app items-center justify-center bg-surface">
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}

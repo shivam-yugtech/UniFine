@@ -7,6 +7,8 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: false,
   },
   reactStrictMode: false,
+  // don't write AGENTS.md / CLAUDE.md into the repo on every `next dev`
+  agentRules: false,
 };
 
 export default nextConfig;
