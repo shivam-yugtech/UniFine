@@ -80,12 +80,14 @@ const ROLES = [
 
 export function Landing({ onEnter }: { onEnter: (role?: string) => void }) {
   return (
-    <div className="min-h-screen bg-[#eef2f7]">
+    <div className="min-h-app bg-[#eef2f7]">
       {/* Hero header — matches dashboard gradient theme */}
-      <header className="relative overflow-hidden rounded-b-[36px] bg-brand-500 px-6 pb-20 pt-[max(2rem,env(safe-area-inset-top))] text-white shadow-xl shadow-brand-500/20">
-        <div className="float-slow absolute -right-20 -top-24 h-72 w-72 rounded-full bg-white/10" />
-        <div className="float-slower absolute -bottom-24 -left-16 h-64 w-64 rounded-full bg-white/10" />
-        <div className="float-slow absolute right-1/4 top-1/2 h-24 w-24 rounded-full bg-white/[0.06]" />
+      <header className="relative rounded-b-[36px] bg-brand-500 px-5 pb-20 pt-[max(2rem,env(safe-area-inset-top))] text-white shadow-xl shadow-brand-500/20 sm:px-6">
+        <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden rounded-b-[36px]">
+          <div className="float-slow absolute -right-20 -top-24 h-72 w-72 rounded-full bg-white/10" />
+          <div className="float-slower absolute -bottom-24 -left-16 h-64 w-64 rounded-full bg-white/10" />
+          <div className="float-slow absolute right-1/4 top-1/2 h-24 w-24 rounded-full bg-white/[0.06]" />
+        </div>
         <div className="relative mx-auto max-w-5xl">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">

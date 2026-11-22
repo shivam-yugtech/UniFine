@@ -243,6 +243,12 @@ body {
   box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.9), 0 6px 16px -6px rgba(15, 23, 42, 0.25);
 }
 
+/* full-height screens that don't jump when the mobile URL bar shows/hides */
+.min-h-app {
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
 /* iOS: stop zoom-on-focus for small inputs on phones */
 @media (max-width: 640px) {
   input,

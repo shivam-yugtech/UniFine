@@ -5,7 +5,6 @@ import {
   animate,
   motion,
   MotionConfig,
-  useInView,
   useReducedMotion,
   type HTMLMotionProps,
   type Variants,
@@ -94,13 +93,12 @@ export function CountUp({
   duration?: number;
 }) {
   const ref = useRef<HTMLSpanElement>(null);
-  const inView = useInView(ref, { once: true });
   const reduce = useReducedMotion();
   const [display, setDisplay] = useState(() => format(0));
   const from = useRef(0);
 
   useEffect(() => {
-    if (!inView || reduce) return;
+    if (reduce) return;
     const controls = animate(from.current, value, {
       duration,
       ease: EASE,
@@ -108,7 +106,7 @@ export function CountUp({
     });
     from.current = value;
     return () => controls.stop();
-  }, [value, inView, reduce]);
+  }, [value, reduce]);
 
   return <span ref={ref}>{reduce ? format(value) : display}</span>;
 }

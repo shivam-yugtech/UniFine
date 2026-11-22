@@ -148,13 +148,13 @@ export function StudentApp({
             <StaggerItem className="col-span-3 lg:col-span-1">
               <ColorTile label="Rule Book" icon={<BookOpenText />} tone="violet" onClick={() => onView("rulebook")} />
             </StaggerItem>
-            <StaggerItem className="col-span-2 lg:col-span-1">
+            <StaggerItem className="col-span-3 min-[380px]:col-span-2 lg:col-span-1">
               <ColorTile label="Payments" icon={<Wallet />} tone="emerald" onClick={() => onView("fines")} />
             </StaggerItem>
-            <StaggerItem className="col-span-2 lg:col-span-1">
+            <StaggerItem className="col-span-3 min-[380px]:col-span-2 lg:col-span-1">
               <ColorTile label="Profile" icon={<UserRound />} tone="sky" onClick={() => onView("profile")} />
             </StaggerItem>
-            <StaggerItem className="col-span-2 lg:hidden">
+            <StaggerItem className="col-span-6 min-[380px]:col-span-2 lg:hidden">
               <ColorTile label="Alerts" icon={<Bell />} tone="amber" badge={unread} onClick={() => onView("notifications")} />
             </StaggerItem>
           </Stagger>

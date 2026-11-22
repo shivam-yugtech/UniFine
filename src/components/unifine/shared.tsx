@@ -59,7 +59,7 @@ export function SectionCard({
   className?: string;
 }) {
   return (
-    <div className={`rounded-[26px] bg-white p-5 shadow-[0_2px_12px_-4px_rgba(15,23,42,0.06)] ring-1 ring-slate-100 ${className}`}>
+    <div className={`min-w-0 rounded-[26px] bg-white p-4 shadow-[0_2px_12px_-4px_rgba(15,23,42,0.06)] ring-1 ring-slate-100 sm:p-5 ${className}`}>
       {children}
     </div>
   );
@@ -188,7 +188,7 @@ export function ColorTile({
           {badge > 99 ? "99+" : badge}
         </span>
       )}
-      <span className="relative max-w-[78%] text-[17px] font-medium leading-tight text-slate-900 sm:text-xl">{label}</span>
+      <span className={`relative max-w-[80%] break-words text-[15px] font-medium leading-tight text-slate-900 min-[400px]:text-[17px] sm:text-xl ${badge ? "pr-5" : ""}`}>{label}</span>
       {value && <span className="relative mt-1 text-base font-semibold text-slate-800">{value}</span>}
     </motion.button>
   );

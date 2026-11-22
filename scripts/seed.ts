@@ -29,7 +29,7 @@ async function main() {
   /* ---------------- Users ---------------- */
   const admin = await db.user.create({
     data: {
-      email: "admin@krmu.ac.in",
+      email: "admin@krmu.edu.in",
       passwordHash: hashPassword("Admin@123"),
       name: "Dr. Meera Kapoor",
       role: "ADMIN",
@@ -40,7 +40,7 @@ async function main() {
 
   const faculty1 = await db.user.create({
     data: {
-      email: "faculty@krmu.ac.in",
+      email: "rajesh.choudhary@krmangalam.edu.in",
       passwordHash: hashPassword("Faculty@123"),
       name: "Prof. Rajesh Choudhary",
       role: "FACULTY",
@@ -51,7 +51,7 @@ async function main() {
 
   const faculty2 = await db.user.create({
     data: {
-      email: "s.neha@krmu.ac.in",
+      email: "neha.sharma@krmangalam.edu.in",
       passwordHash: hashPassword("Faculty@123"),
       name: "Dr. Neha Sharma",
       role: "FACULTY",
@@ -82,7 +82,7 @@ async function main() {
       data: {
         rollNumber: roll,
         name,
-        email: `${roll.toLowerCase()}@krmu.ac.in`,
+        email: `${roll}@krmu.edu.in`,
         department: dept,
         programme: prog,
         year,
@@ -95,7 +95,7 @@ async function main() {
   // student login for the demo student (matches the mobile mock greeting)
   await db.user.create({
     data: {
-      email: "student@krmu.ac.in",
+      email: "2201560042@krmu.edu.in",
       passwordHash: hashPassword("Student@123"),
       name: "Aarav Choudhary",
       role: "STUDENT",

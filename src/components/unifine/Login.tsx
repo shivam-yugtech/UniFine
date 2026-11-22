@@ -8,6 +8,14 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { KrmuLogo } from "./shared";
 import { AnimatePresence, motion } from "./motion";
+import {
+  FACULTY_EMAIL_DOMAIN,
+  FACULTY_LOCAL_RE,
+  ROLL_RE,
+  STUDENT_EMAIL_DOMAIN,
+  facultyLocalFromName,
+  studentEmail,
+} from "@/lib/email-rules";
 import type { Role, SessionUser, StudentT } from "./types";
 import {
   ArrowLeft,
@@ -26,9 +34,9 @@ import {
 const SHOW_DEMO = process.env.NODE_ENV !== "production";
 
 const DEMO: Record<Role, { email: string; password: string; hint: string }> = {
-  ADMIN: { email: "admin@krmu.ac.in", password: "Admin@123", hint: "Dr. Meera Kapoor · Dean Student Affairs" },
-  FACULTY: { email: "faculty@krmu.ac.in", password: "Faculty@123", hint: "Prof. Rajesh Choudhary · SOET" },
-  STUDENT: { email: "student@krmu.ac.in", password: "Student@123", hint: "Aarav Choudhary · B.Tech CSE" },
+  ADMIN: { email: "admin@krmu.edu.in", password: "Admin@123", hint: "Dr. Meera Kapoor · Dean Student Affairs" },
+  FACULTY: { email: "rajesh.choudhary@krmangalam.edu.in", password: "Faculty@123", hint: "Prof. Rajesh Choudhary · SOET" },
+  STUDENT: { email: "2201560042@krmu.edu.in", password: "Student@123", hint: "Aarav Choudhary · B.Tech CSE" },
 };
 
 const SCHOOLS = [
@@ -66,7 +74,9 @@ export function Login({
   /* ---- sign up state ---- */
   const [signupRole, setSignupRole] = useState<"STUDENT" | "FACULTY">("STUDENT");
   const [suName, setSuName] = useState("");
-  const [suEmail, setSuEmail] = useState("");
+  // faculty email local part ("rajesh.kumar"); follows the name until the user edits it
+  const [suFacultyLocal, setSuFacultyLocal] = useState("");
+  const [facultyLocalEdited, setFacultyLocalEdited] = useState(false);
   const [suPassword, setSuPassword] = useState("");
   const [suRoll, setSuRoll] = useState("");
   const [suSchool, setSuSchool] = useState(SCHOOLS[0]);
@@ -103,11 +113,12 @@ export function Login({
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim(), password }),
+        // students may type just their roll number
+        body: JSON.stringify({ email: ROLL_RE.test(email.trim()) ? studentEmail(email) : email.trim(), password }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setError(data.error || "Login failed.");
+        setError(data.error || `Login failed (error ${res.status}).`);
         return;
       }
       onLogin({ ...data.user, token: data.token }, data.student ?? null);
@@ -123,15 +134,16 @@ export function Login({
     e.preventDefault();
     setError("");
     const name = suName.trim();
-    const mail = suEmail.trim();
     const roll = suRoll.trim();
+    const facultyLocal = (facultyLocalEdited ? suFacultyLocal : facultyLocalFromName(suName)).trim().toLowerCase();
+    const mail = signupRole === "STUDENT" ? studentEmail(roll) : `${facultyLocal}@${FACULTY_EMAIL_DOMAIN}`;
 
     if (name.length < 3) {
       setError("Please enter your full name.");
       return;
     }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(mail)) {
-      setError("Please enter a valid university email.");
+    if (signupRole === "FACULTY" && !FACULTY_LOCAL_RE.test(facultyLocal)) {
+      setError(`Faculty email must be your name @${FACULTY_EMAIL_DOMAIN} — letters and dots only (e.g. rajesh.kumar).`);
       return;
     }
     if (suPassword.length < 6) {
@@ -139,7 +151,7 @@ export function Login({
       return;
     }
     if (signupRole === "STUDENT") {
-      if (!/^\d{10}$/.test(roll)) {
+      if (!ROLL_RE.test(roll)) {
         setError("Roll number must be exactly 10 digits (e.g. 2501560006).");
         return;
       }
@@ -166,7 +178,7 @@ export function Login({
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setError(data.error || "Registration failed.");
+        setError(data.error || `Registration failed (error ${res.status}). Please try again.`);
         return;
       }
       onLogin({ ...data.user, token: data.token }, data.student ?? null);
@@ -178,8 +190,10 @@ export function Login({
   };
 
   return (
-    <div className="relative flex min-h-screen flex-col overflow-hidden bg-gradient-to-b from-brand-400 via-brand-500 to-brand-600">
-      <div className="pointer-events-none absolute inset-0">
+    <div className="relative flex min-h-app flex-col bg-gradient-to-b from-brand-400 via-brand-500 to-brand-600">
+      {/* decorative circles live in their own clipped layer: if the clipping box also held the
+          inputs, focusing an input on a phone scrolled the whole page sideways */}
+      <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="float-slow absolute -right-24 -top-24 h-80 w-80 rounded-full bg-white/10" />
         <div className="float-slower absolute -bottom-32 -left-24 h-96 w-96 rounded-full bg-white/[0.07]" />
       </div>
@@ -215,7 +229,7 @@ export function Login({
             <p className="mt-1 text-sm text-brand-100">KR Mangalam University · Fine Management Portal</p>
           </div>
 
-          <div className="overflow-hidden rounded-[28px] bg-white p-6 shadow-2xl shadow-brand-900/25">
+          <div className="overflow-clip rounded-[28px] bg-white p-5 shadow-2xl shadow-brand-900/25 sm:p-6">
             {/* mode switch — sliding pill */}
             <div className="mb-5 grid grid-cols-2 gap-1 rounded-2xl bg-slate-100 p-1">
               {(["signin", "signup"] as const).map((m) => (
@@ -276,16 +290,22 @@ export function Login({
 
                 <form onSubmit={submitSignIn} className="space-y-4">
                   <div className="space-y-1.5">
-                    <Label htmlFor="email" className="text-xs font-bold text-slate-600">University email</Label>
+                    <Label htmlFor="email" className="text-xs font-bold text-slate-600">
+                      University email {role === "STUDENT" && <span className="font-medium text-slate-400">or roll number</span>}
+                    </Label>
                     <div className="relative">
                       <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                       <Input
                         id="email"
-                        type="email"
-                        autoComplete="email"
+                        type="text"
+                        inputMode="email"
+                        autoCapitalize="none"
+                        autoCorrect="off"
+                        spellCheck={false}
+                        autoComplete="username"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
-                        placeholder="you@krmu.ac.in"
+                        placeholder="you@krmu.edu.in"
                         className={inputCls + " pl-9"}
                       />
                     </div>
@@ -399,18 +419,50 @@ export function Login({
 
                   <div className="space-y-1.5">
                     <Label htmlFor="su-email" className="text-xs font-bold text-slate-600">University email</Label>
-                    <div className="relative">
-                      <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                      <Input
-                        id="su-email"
-                        type="email"
-                        value={suEmail}
-                        onChange={(e) => setSuEmail(e.target.value)}
-                        placeholder="you@krmu.ac.in"
-                        autoComplete="email"
-                        className={inputCls + " pl-9"}
-                      />
-                    </div>
+                    {signupRole === "STUDENT" ? (
+                      <>
+                        <div className="relative">
+                          <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                          <Input
+                            id="su-email"
+                            type="email"
+                            readOnly
+                            tabIndex={-1}
+                            value={suRoll ? studentEmail(suRoll) : ""}
+                            placeholder={`rollno@${STUDENT_EMAIL_DOMAIN}`}
+                            className={inputCls + " cursor-default bg-slate-100/70 pl-9 text-slate-600"}
+                          />
+                        </div>
+                        <p className="text-[10px] font-medium text-slate-400">
+                          Set automatically from your roll number — use it (or just the roll number) to sign in.
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <div className="flex h-11 overflow-hidden rounded-xl border border-slate-200 bg-slate-50/60 focus-within:ring-2 focus-within:ring-brand-300">
+                          <span className="flex items-center pl-3 text-slate-400">
+                            <Mail className="h-4 w-4" />
+                          </span>
+                          <input
+                            id="su-email"
+                            value={facultyLocalEdited ? suFacultyLocal : facultyLocalFromName(suName)}
+                            onChange={(e) => {
+                              setFacultyLocalEdited(true);
+                              setSuFacultyLocal(e.target.value.toLowerCase().replace(/[^a-z.]/g, ""));
+                            }}
+                            placeholder="firstname.lastname"
+                            autoComplete="off"
+                            autoCapitalize="none"
+                            spellCheck={false}
+                            className="min-w-0 flex-1 bg-transparent px-2 text-sm text-slate-800 outline-none placeholder:text-slate-400"
+                          />
+                          <span className="flex shrink-0 items-center border-l border-slate-200 bg-slate-100 px-2.5 text-xs font-semibold text-slate-500 sm:px-3">
+                            @{FACULTY_EMAIL_DOMAIN}
+                          </span>
+                        </div>
+                        <p className="text-[10px] font-medium text-slate-400">Faculty emails are your name @{FACULTY_EMAIL_DOMAIN}.</p>
+                      </>
+                    )}
                   </div>
 
                   <div className="space-y-1.5">

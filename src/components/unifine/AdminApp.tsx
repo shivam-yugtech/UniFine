@@ -185,7 +185,7 @@ function AdminHome({ session, onView }: { session: SessionUser; onView: (v: stri
         </SectionCard>
       )}
 
-      <div className="grid gap-4 lg:grid-cols-5">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
         <SectionCard className="lg:col-span-3">
           <SectionHeader title="6-Month Trend" icon={<BarChart3 className="h-4 w-4 text-brand-500" />} />
           {summary === null ? (
@@ -415,7 +415,7 @@ function OffenceCatalogue({ session }: { session: SessionUser }) {
       ) : filtered.length === 0 ? (
         <EmptyState title={q ? "No matching offences" : "Catalogue is empty"} hint={q ? "Try another keyword." : "Add the first offence to get started."} />
       ) : (
-        <div className="max-h-[62vh] space-y-2 overflow-y-auto pe-1 nice-scroll">
+        <div className="space-y-2 lg:max-h-[62vh] lg:overflow-y-auto lg:pe-1 nice-scroll">
           {filtered.map((o) => (
             <div key={o.id} className="flex items-start gap-3 rounded-2xl border border-slate-200/80 p-3.5">
               <span className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${o.active ? "bg-gradient-to-br from-violet-100 to-purple-50 text-violet-600" : "bg-slate-100 text-slate-400"}`}>
@@ -631,7 +631,7 @@ function AdminFines({ session }: { session: SessionUser }) {
       ) : filtered.length === 0 ? (
         <EmptyState title="No fines found" hint="Adjust your filters or search term." />
       ) : (
-        <div className="max-h-[62vh] space-y-2.5 overflow-y-auto pe-1 nice-scroll">
+        <div className="space-y-2.5 lg:max-h-[62vh] lg:overflow-y-auto lg:pe-1 nice-scroll">
           {filtered.map((f) => (
             <FineCard
               key={f.id}
@@ -814,8 +814,8 @@ function ReportsView({ session }: { session: SessionUser }) {
             </Button>
           }
         />
-        <div className="grid gap-4 lg:grid-cols-2">
-          <div>
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <div className="min-w-0">
             <h4 className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-400">Fines by category</h4>
             {summary === null ? (
               <Skeleton className="h-64 w-full rounded-2xl" />
@@ -839,7 +839,7 @@ function ReportsView({ session }: { session: SessionUser }) {
               </div>
             )}
           </div>
-          <div>
+          <div className="min-w-0">
             <h4 className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-400">Top offences</h4>
             {summary === null ? (
               <CardsSkeleton n={4} />
@@ -969,7 +969,7 @@ function RuleBookAdmin({ session }: { session: SessionUser }) {
       ) : grouped.length === 0 ? (
         <EmptyState title="No rules yet" hint="Add the first rule so students can read it in the app." />
       ) : (
-        <div className="max-h-[62vh] space-y-4 overflow-y-auto pe-1 nice-scroll">
+        <div className="space-y-4 lg:max-h-[62vh] lg:overflow-y-auto lg:pe-1 nice-scroll">
           {grouped.map(([cat, rules]) => (
             <div key={cat}>
               <h4 className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-400">
@@ -1086,7 +1086,7 @@ function BroadcastView({ session }: { session: SessionUser }) {
   };
 
   return (
-    <div className="grid gap-4 lg:grid-cols-5">
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
       <SectionCard className="lg:col-span-2">
         <SectionHeader title="Send Broadcast" icon={<Send className="h-4 w-4 text-brand-500" />} />
         <div className="space-y-3">
@@ -1140,7 +1140,7 @@ function BroadcastView({ session }: { session: SessionUser }) {
         ) : items.length === 0 ? (
           <EmptyState title="No notifications sent yet" icon={<BellRing className="h-6 w-6" />} />
         ) : (
-          <ul className="max-h-[55vh] space-y-2.5 overflow-y-auto pe-1 nice-scroll">
+          <ul className="space-y-2.5 lg:max-h-[55vh] lg:overflow-y-auto lg:pe-1 nice-scroll">
             {items.map((n) => (
               <li key={n.id} className="rounded-2xl border border-slate-100 p-3.5">
                 <div className="flex items-center gap-2">
@@ -1201,7 +1201,7 @@ function AuditView({ session }: { session: SessionUser }) {
       ) : filtered.length === 0 ? (
         <EmptyState title="No audit entries" hint="Critical actions will be recorded here." />
       ) : (
-        <div className="max-h-[62vh] space-y-2 overflow-y-auto pe-1 nice-scroll">
+        <div className="space-y-2 lg:max-h-[62vh] lg:overflow-y-auto lg:pe-1 nice-scroll">
           {filtered.map((a) => (
             <div key={a.id} className="rounded-2xl border border-slate-200/80 p-3.5">
               <div className="flex flex-wrap items-center gap-2">

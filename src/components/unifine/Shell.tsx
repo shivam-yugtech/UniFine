@@ -49,9 +49,9 @@ export function Shell({
   const currentLabel = nav.find((n) => n.key === view)?.label ?? "Dashboard";
 
   return (
-    <div className="min-h-screen bg-surface lg:flex">
+    <div className="min-h-app bg-surface lg:flex">
       {/* ===== Desktop sidebar ===== */}
-      <aside className="sticky top-0 hidden h-screen w-[268px] shrink-0 flex-col gap-5 border-r border-slate-200/70 bg-white p-5 lg:flex">
+      <aside className="sticky top-0 hidden h-dvh w-[268px] shrink-0 flex-col gap-5 border-r border-slate-200/70 bg-white p-5 lg:flex">
         <div className="flex items-center gap-3 px-1 pt-1">
           <KrmuLogo size={44} />
           <div className="leading-tight">
@@ -65,7 +65,7 @@ export function Shell({
         <UserCard session={session} onLogout={onLogout} />
       </aside>
 
-      <div className="flex min-h-screen min-w-0 flex-1 flex-col">
+      <div className="flex min-h-app min-w-0 flex-1 flex-col">
         {/* ===== Mobile header ===== */}
         <header className="relative z-10 rounded-b-[28px] bg-brand-500 px-4 pb-5 pt-[max(0.9rem,env(safe-area-inset-top))] shadow-lg shadow-brand-500/25 lg:hidden">
           <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-b-[28px]">
