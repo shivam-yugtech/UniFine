@@ -12,7 +12,13 @@
 import { PrismaClient } from "@prisma/client";
 import { hashPassword } from "../src/lib/password";
 
-const db = new PrismaClient();
+const db = new PrismaClient({
+  datasources: {
+    db: {
+      url: process.env.DIRECT_URL,
+    },
+  },
+});
 const [cmd, ...args] = process.argv.slice(2);
 
 function usage(): never {
